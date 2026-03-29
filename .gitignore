@@ -1,0 +1,15 @@
+# Worktrees
+.worktrees/
+
+# oflow runtime artifacts
+.oflow/
+
+# Node
+node_modules/
+dist/
+
+# Environment
+.env
+
+# OS
+.DS_Store
