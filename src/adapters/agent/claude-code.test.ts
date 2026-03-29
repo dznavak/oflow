@@ -24,14 +24,14 @@ describe("ClaudeCodeAdapter", () => {
   let tmpDir: string;
   let adapter: ClaudeCodeAdapter;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let mockChildProcess: any;
+  let _mockChildProcess: any;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     tmpDir = await mkdtemp(join(tmpdir(), "oflow-agent-test-"));
     adapter = new ClaudeCodeAdapter();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    mockChildProcess = (spawnMock as any).mock.results[0]?.value ?? {
+    _mockChildProcess = (spawnMock as any).mock.results[0]?.value ?? {
       pid: 99999,
       on: vi.fn(),
       unref: vi.fn(),
