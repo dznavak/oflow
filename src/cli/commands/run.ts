@@ -43,18 +43,21 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
 
   while (running) {
     try {
-      const activesBefore = scheduler.activeSessions().size;
+      const idsBefore = new Set(scheduler.activeSessions().keys());
       await poll(board, scheduler, agent, stateManager, config, repoPath, label);
       const activesAfter = scheduler.activeSessions().size;
 
       // Log newly spawned sessions
-      if (activesAfter > activesBefore) {
-        for (const [taskId, session] of scheduler.activeSessions()) {
+      let newTasksStarted = 0;
+      for (const [taskId, session] of scheduler.activeSessions()) {
+        if (!idsBefore.has(taskId)) {
           log(`Task ${taskId} started — pid ${session.pid}`);
           log(`  log: ${session.logFile}`);
           log(`--- agent output ---`);
+          newTasksStarted++;
         }
-      } else if (activesAfter === 0) {
+      }
+      if (newTasksStarted === 0 && activesAfter === 0) {
         log(`No tasks available. Polling again in ${config.pollIntervalSeconds}s`);
       }
 
