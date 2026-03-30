@@ -5,17 +5,18 @@ interface StateManagerLike {
   writeTaskContext(taskId: string, context: object): Promise<void>;
 }
 
-export async function listTasks(adapter: BoardAdapter): Promise<void> {
-  const tasks = await adapter.listAvailableTasks();
+export async function listTasks(adapter: BoardAdapter, label?: string): Promise<void> {
+  const tasks = await adapter.listAvailableTasks(label);
   process.stdout.write(JSON.stringify(tasks, null, 2) + "\n");
 }
 
 export async function pickTask(
   adapter: BoardAdapter,
   stateManager: StateManagerLike,
-  _repoPath: string
+  _repoPath: string,
+  label?: string
 ): Promise<void> {
-  const tasks = await adapter.listAvailableTasks();
+  const tasks = await adapter.listAvailableTasks(label);
 
   if (tasks.length === 0) {
     throw new Error("No available tasks to pick up");

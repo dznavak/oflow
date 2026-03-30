@@ -18,13 +18,14 @@ export async function poll(
   agent: AgentAdapter,
   stateManager: StateManager | { initRun: (id: string) => Promise<string>; writeTaskContext: (id: string, ctx: object) => Promise<void>; getRunDir: (id: string) => string },
   config: Config,
-  repoPath: string
+  repoPath: string,
+  label?: string
 ): Promise<void> {
   if (!scheduler.hasSlot()) {
     return;
   }
 
-  const tasks = await board.listAvailableTasks();
+  const tasks = await board.listAvailableTasks(label);
   if (tasks.length === 0) {
     return;
   }

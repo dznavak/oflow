@@ -130,4 +130,20 @@ describe("poll", () => {
     expect(agent.spawn).not.toHaveBeenCalled();
     expect(board.claimTask).not.toHaveBeenCalled();
   });
+
+  it("calls listAvailableTasks with label when label is provided", async () => {
+    board.listAvailableTasks.mockResolvedValue([]);
+
+    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo", "my-label");
+
+    expect(board.listAvailableTasks).toHaveBeenCalledWith("my-label");
+  });
+
+  it("calls listAvailableTasks without label when label is not provided", async () => {
+    board.listAvailableTasks.mockResolvedValue([]);
+
+    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo");
+
+    expect(board.listAvailableTasks).toHaveBeenCalledWith(undefined);
+  });
 });

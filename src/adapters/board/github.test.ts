@@ -132,6 +132,26 @@ describe("GitHubBoardAdapter", () => {
 
       expect(tasks[0].workflow).toBe("dev-workflow");
     });
+
+    it("uses only taskLabel when no extra label is provided", async () => {
+      mock.issues.listForRepo.mockResolvedValue({ data: [makeIssue()] });
+
+      await adapter.listAvailableTasks();
+
+      expect(mock.issues.listForRepo).toHaveBeenCalledWith(
+        expect.objectContaining({ labels: "oflow-ready" })
+      );
+    });
+
+    it("appends extra label to taskLabel as comma-separated AND filter", async () => {
+      mock.issues.listForRepo.mockResolvedValue({ data: [makeIssue()] });
+
+      await adapter.listAvailableTasks("custom-label");
+
+      expect(mock.issues.listForRepo).toHaveBeenCalledWith(
+        expect.objectContaining({ labels: "oflow-ready,custom-label" })
+      );
+    });
   });
 
   describe("claimTask", () => {

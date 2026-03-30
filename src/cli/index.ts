@@ -17,19 +17,21 @@ const boardCmd = program.command("board").description("Board management commands
 boardCmd
   .command("list")
   .description("List available tasks from the board")
-  .action(async () => {
+  .option("--label <label>", "Filter tasks by label")
+  .action(async (options: { label?: string }) => {
     const { loadConfig } = await import("../config/loader.js");
     const { GitHubBoardAdapter } = await import("../adapters/board/github.js");
     const { listTasks } = await import("./commands/board.js");
     const config = loadConfig();
     const adapter = new GitHubBoardAdapter(config);
-    await listTasks(adapter);
+    await listTasks(adapter, options.label);
   });
 
 boardCmd
   .command("pick")
   .description("Claim the next available task")
-  .action(async () => {
+  .option("--label <label>", "Filter tasks by label")
+  .action(async (options: { label?: string }) => {
     const { loadConfig } = await import("../config/loader.js");
     const { GitHubBoardAdapter } = await import("../adapters/board/github.js");
     const { StateManager } = await import("../state/manager.js");
@@ -38,7 +40,7 @@ boardCmd
     const adapter = new GitHubBoardAdapter(config);
     const repoPath = resolve(".");
     const stateManager = new StateManager(repoPath);
-    await pickTask(adapter, stateManager, repoPath);
+    await pickTask(adapter, stateManager, repoPath, options.label);
   });
 
 boardCmd
@@ -106,9 +108,10 @@ program
 program
   .command("run")
   .description("Start the oflow daemon (poll board and spawn agents)")
-  .action(async () => {
+  .option("--label <label>", "Filter tasks by label")
+  .action(async (options: { label?: string }) => {
     const { runDaemon } = await import("./commands/run.js");
-    await runDaemon(resolve("."));
+    await runDaemon(resolve("."), options.label);
   });
 
 // status command

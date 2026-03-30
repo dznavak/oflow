@@ -14,7 +14,7 @@ export interface TaskUpdate {
 }
 
 export interface BoardAdapter {
-  listAvailableTasks(): Promise<Task[]>;
+  listAvailableTasks(label?: string): Promise<Task[]>;
   claimTask(taskId: string): Promise<Task>;
   updateTask(taskId: string, update: TaskUpdate): Promise<void>;
   getTask(taskId: string): Promise<Task>;
