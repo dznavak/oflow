@@ -3,6 +3,7 @@ import { join } from "path";
 
 export interface TaskContext {
   id: string;
+  number: number;
   title: string;
   description: string;
   labels: string[];

@@ -88,6 +88,7 @@ describe("StateManager", () => {
       await manager.initRun("42");
       const context = {
         id: "42",
+        number: 42,
         title: "Test task",
         description: "Test description",
         labels: ["oflow-ready"],
