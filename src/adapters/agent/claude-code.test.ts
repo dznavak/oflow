@@ -5,8 +5,10 @@ import { join } from "path";
 
 // Mock child_process at module level
 vi.mock("child_process", () => {
+  const mockStdin = { write: vi.fn(), end: vi.fn() };
   const mockProcess = {
     pid: 99999,
+    stdin: mockStdin,
     stdout: null,
     stderr: null,
     on: vi.fn(),
@@ -54,6 +56,7 @@ describe("ClaudeCodeAdapter", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (spawnMock as any).mockReturnValue({
         pid: 99999,
+        stdin: { write: vi.fn(), end: vi.fn() },
         on: vi.fn(),
         unref: vi.fn(),
         stdout: null,
@@ -75,6 +78,33 @@ describe("ClaudeCodeAdapter", () => {
       expect(spawnMock).toHaveBeenCalled();
     });
 
+    it("spawns claude with -p and --dangerously-skip-permissions via stdin", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+
+      const mockStdin = { write: vi.fn(), end: vi.fn() };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (spawnMock as any).mockReturnValue({
+        pid: 99999,
+        stdin: mockStdin,
+        on: vi.fn(),
+        unref: vi.fn(),
+        stdout: null,
+        stderr: null,
+      });
+
+      await adapter.spawn({ skill: skillFile, taskContextFile, repoPath: tmpDir, taskId: "42", logFile });
+
+      const spawnCall = (spawnMock as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(spawnCall[1]).toContain("-p");
+      expect(spawnCall[1]).toContain("--dangerously-skip-permissions");
+      expect(mockStdin.write).toHaveBeenCalled();
+      expect(mockStdin.end).toHaveBeenCalled();
+    });
+
     it("sets OFLOW_CURRENT_TASK_ID env var for child process", async () => {
       const skillFile = join(tmpDir, "skill.md");
       const taskContextFile = join(tmpDir, "task-context.json");
@@ -86,6 +116,7 @@ describe("ClaudeCodeAdapter", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (spawnMock as any).mockReturnValue({
         pid: 12345,
+        stdin: { write: vi.fn(), end: vi.fn() },
         on: vi.fn(),
         unref: vi.fn(),
         stdout: null,
@@ -120,6 +151,7 @@ describe("ClaudeCodeAdapter", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (spawnMock as any).mockReturnValue({
         pid: 99999,
+        stdin: { write: vi.fn(), end: vi.fn() },
         on: vi.fn(),
         unref: vi.fn(),
         stdout: null,
@@ -156,6 +188,7 @@ describe("ClaudeCodeAdapter", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (spawnMock as any).mockReturnValue({
         pid: 99999,
+        stdin: { write: vi.fn(), end: vi.fn() },
         on: vi.fn(),
         unref: vi.fn(),
         stdout: null,
@@ -188,6 +221,7 @@ describe("ClaudeCodeAdapter", () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (spawnMock as any).mockReturnValue({
         pid: 99999,
+        stdin: { write: vi.fn(), end: vi.fn() },
         on: vi.fn(),
         unref: vi.fn(),
         stdout: null,

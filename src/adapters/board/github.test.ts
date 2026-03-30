@@ -133,23 +133,23 @@ describe("GitHubBoardAdapter", () => {
       expect(tasks[0].workflow).toBe("dev-workflow");
     });
 
-    it("uses only taskLabel when no extra label is provided", async () => {
+    it("uses taskLabel when no custom label provided", async () => {
       mock.issues.listForRepo.mockResolvedValue({ data: [makeIssue()] });
 
       await adapter.listAvailableTasks();
 
       expect(mock.issues.listForRepo).toHaveBeenCalledWith(
-        expect.objectContaining({ labels: "oflow-ready" })
+        expect.objectContaining({ labels: "oflow-ready", sort: "created", direction: "asc" })
       );
     });
 
-    it("appends extra label to taskLabel as comma-separated AND filter", async () => {
+    it("uses custom label exclusively when provided", async () => {
       mock.issues.listForRepo.mockResolvedValue({ data: [makeIssue()] });
 
-      await adapter.listAvailableTasks("custom-label");
+      await adapter.listAvailableTasks("critical");
 
       expect(mock.issues.listForRepo).toHaveBeenCalledWith(
-        expect.objectContaining({ labels: "oflow-ready,custom-label" })
+        expect.objectContaining({ labels: "critical", sort: "created", direction: "asc" })
       );
     });
   });
