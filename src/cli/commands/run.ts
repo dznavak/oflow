@@ -11,7 +11,7 @@ function log(msg: string) {
   console.log(`[${new Date().toISOString()}] ${msg}`);
 }
 
-export async function runDaemon(repoPath: string): Promise<void> {
+export async function runDaemon(repoPath: string, label?: string): Promise<void> {
   const config = loadConfig();
   const board = new GitHubBoardAdapter(config);
   const stateManager = new StateManager(repoPath);
@@ -38,7 +38,7 @@ export async function runDaemon(repoPath: string): Promise<void> {
 
   while (running) {
     try {
-      await poll(board, scheduler, agent, stateManager, config, repoPath);
+      await poll(board, scheduler, agent, stateManager, config, repoPath, label);
 
       // Check completed sessions
       for (const [taskId, session] of scheduler.activeSessions()) {

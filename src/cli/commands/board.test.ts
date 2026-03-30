@@ -71,6 +71,22 @@ describe("board commands", () => {
       const printed = output.join("");
       expect(JSON.parse(printed)).toEqual([]);
     });
+
+    it("passes label to listAvailableTasks when provided", async () => {
+      adapter.listAvailableTasks.mockResolvedValue([makeTask()]);
+
+      await listTasks(adapter, "my-label");
+
+      expect(adapter.listAvailableTasks).toHaveBeenCalledWith("my-label");
+    });
+
+    it("calls listAvailableTasks without label when label is not provided", async () => {
+      adapter.listAvailableTasks.mockResolvedValue([]);
+
+      await listTasks(adapter);
+
+      expect(adapter.listAvailableTasks).toHaveBeenCalledWith(undefined);
+    });
   });
 
   describe("pickTask", () => {
@@ -100,6 +116,30 @@ describe("board commands", () => {
       await expect(pickTask(adapter, stateManager, "/repo")).rejects.toThrow(
         /No available tasks/
       );
+    });
+
+    it("passes label to listAvailableTasks when provided", async () => {
+      const task = makeTask();
+      adapter.listAvailableTasks.mockResolvedValue([task]);
+      adapter.claimTask.mockResolvedValue(task);
+      stateManager.initRun.mockResolvedValue("/path/to/run");
+      stateManager.writeTaskContext.mockResolvedValue(undefined);
+
+      await pickTask(adapter, stateManager, "/repo", "my-label");
+
+      expect(adapter.listAvailableTasks).toHaveBeenCalledWith("my-label");
+    });
+
+    it("calls listAvailableTasks without label when label is not provided", async () => {
+      const task = makeTask();
+      adapter.listAvailableTasks.mockResolvedValue([task]);
+      adapter.claimTask.mockResolvedValue(task);
+      stateManager.initRun.mockResolvedValue("/path/to/run");
+      stateManager.writeTaskContext.mockResolvedValue(undefined);
+
+      await pickTask(adapter, stateManager, "/repo");
+
+      expect(adapter.listAvailableTasks).toHaveBeenCalledWith(undefined);
     });
   });
 

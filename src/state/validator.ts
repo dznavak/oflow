@@ -38,7 +38,11 @@ export function validateArtifact(
   artifactName: string,
   content: string
 ): ValidateResult {
-  const schema = SCHEMA_MAP[artifactName];
+  // Allow implementation-N (e.g. implementation-1, implementation-2) to resolve to the implementation schema
+  const schemaKey = /^implementation-\d+$/.test(artifactName)
+    ? "implementation"
+    : artifactName;
+  const schema = SCHEMA_MAP[schemaKey];
   if (!schema) {
     return {
       success: false,

@@ -41,11 +41,14 @@ export class GitHubBoardAdapter implements BoardAdapter {
     };
   }
 
-  async listAvailableTasks(): Promise<Task[]> {
+  async listAvailableTasks(label?: string): Promise<Task[]> {
+    const labels = label
+      ? `${this.config.taskLabel},${label}`
+      : this.config.taskLabel;
     const response = await this.octokit.issues.listForRepo({
       owner: this.owner,
       repo: this.repo,
-      labels: this.config.taskLabel,
+      labels,
       state: "open",
     });
 
