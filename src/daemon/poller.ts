@@ -45,7 +45,7 @@ export async function poll(
     runDir,
   });
 
-  const skillFile = join(repoPath, ".claude", "skills", `${claimedTask.workflow}.md`);
+  const skillFile = join(repoPath, ".claude", "skills", claimedTask.workflow, "SKILL.md");
   const taskContextFile = join(runDir, "task-context.json");
   const logFile = join(runDir, "run.log");
 
