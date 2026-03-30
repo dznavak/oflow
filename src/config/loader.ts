@@ -1,4 +1,3 @@
-import { config as dotenvConfig } from "dotenv";
 import { z } from "zod";
 import type { Config } from "./types.js";
 
@@ -30,7 +29,6 @@ const githubSchema = z.object({
 });
 
 export function loadConfig(): Config {
-  dotenvConfig();
 
   const baseResult = baseSchema.safeParse(process.env);
   if (!baseResult.success) {

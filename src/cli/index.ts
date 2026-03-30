@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { config as dotenvConfig } from "dotenv";
+dotenvConfig();
 import { Command } from "commander";
 import { resolve } from "path";
 
