@@ -7,7 +7,7 @@ import {
   ImplementationSchema,
   ValidationSchema,
   ReviewSchema,
-} from "./schemas/index.js";
+} from "./schemas.js";
 
 type ValidateResult =
   | { success: true; data: unknown }

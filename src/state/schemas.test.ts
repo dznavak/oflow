@@ -6,7 +6,7 @@ import {
   ImplementationSchema,
   ValidationSchema,
   ReviewSchema,
-} from "./index.js";
+} from "./schemas.js";
 
 describe("Artifact Schemas", () => {
   describe("ExplorationSchema", () => {
