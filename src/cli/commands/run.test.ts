@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, type MockInstance } from "vitest";
 import { runDaemon } from "./run.js";
 import * as poller from "../../daemon/poller.js";
+import { Scheduler } from "../../daemon/scheduler.js";
+import { GitHubBoardAdapter } from "../../adapters/board/github.js";
+import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 
 vi.mock("../../config/loader.js", () => ({
   loadConfig: () => ({
@@ -96,5 +99,56 @@ describe("runDaemon", () => {
       "/repo",
       "my-label"
     );
+  });
+
+  it("removes session from scheduler even when updateTask throws", async () => {
+    const session = {
+      id: "session-1",
+      taskId: "42",
+      pid: 12345,
+      logFile: "/tmp/run.log",
+      startedAt: new Date(),
+    };
+
+    const removeSession = vi.fn().mockImplementation(() => {
+      // Stop the daemon after the session is cleaned up so the test doesn't hang
+      process.emit("SIGINT" as any);
+    });
+
+    // activeSessions is called 4 times per loop iteration:
+    // 1. idsBefore snapshot, 2. activesAfter size, 3. new-sessions log loop,
+    // 4. completed-sessions check — only the 4th call should return the session
+    let activeSessionsCallCount = 0;
+    (Scheduler as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      hasSlot: vi.fn().mockReturnValue(false),
+      addSession: vi.fn(),
+      removeSession,
+      activeSessions: vi.fn().mockImplementation(() => {
+        activeSessionsCallCount++;
+        return activeSessionsCallCount === 4
+          ? new Map([["42", session]])
+          : new Map();
+      }),
+    }));
+
+    (ClaudeCodeAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      spawn: vi.fn(),
+      getStatus: vi.fn().mockResolvedValue("completed"),
+    }));
+
+    (GitHubBoardAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      listAvailableTasks: vi.fn().mockResolvedValue([]),
+      claimTask: vi.fn(),
+      updateTask: vi.fn().mockRejectedValue(
+        Object.assign(new Error("Label does not exist"), { status: 404 })
+      ),
+      getTask: vi.fn(),
+    }));
+
+    pollSpy.mockResolvedValue(undefined);
+
+    await runDaemon("/repo");
+
+    expect(removeSession).toHaveBeenCalledWith("42");
   });
 });

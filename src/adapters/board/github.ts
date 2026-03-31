@@ -124,12 +124,17 @@ export class GitHubBoardAdapter implements BoardAdapter {
       }
 
       if (removeLabel) {
-        await this.octokit.issues.removeLabel({
-          owner: this.owner,
-          repo: this.repo,
-          issue_number: issueNumber,
-          name: removeLabel,
-        });
+        try {
+          await this.octokit.issues.removeLabel({
+            owner: this.owner,
+            repo: this.repo,
+            issue_number: issueNumber,
+            name: removeLabel,
+          });
+        } catch (err) {
+          // Label already absent is fine — removal is idempotent
+          if ((err as { status?: number }).status !== 404) throw err;
+        }
       }
     }
 

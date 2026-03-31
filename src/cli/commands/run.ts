@@ -71,11 +71,14 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
           if (status === "failed") {
             log(`  logs: ${session.logFile}`);
           }
-          await board.updateTask(taskId, {
-            status: status === "completed" ? "done" : "failed",
-            comment: `oflow: task ${status} in ${duration}s`,
-          });
-          scheduler.removeSession(taskId);
+          try {
+            await board.updateTask(taskId, {
+              status: status === "completed" ? "done" : "failed",
+              comment: `oflow: task ${status} in ${duration}s`,
+            });
+          } finally {
+            scheduler.removeSession(taskId);
+          }
         }
       }
     } catch (err) {
