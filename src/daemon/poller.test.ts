@@ -1,20 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { poll } from "./poller.js";
-import type { Task } from "../adapters/board/index.js";
 import type { Session } from "../adapters/agent/index.js";
-
-function makeTask(overrides: Partial<Task> = {}): Task {
-  return {
-    id: "42",
-    number: 42,
-    title: "Test task",
-    description: "Test description",
-    labels: ["oflow-ready"],
-    url: "https://github.com/owner/repo/issues/42",
-    workflow: "dev-workflow",
-    ...overrides,
-  };
-}
+import { makeTask, makeMockAdapter, makeMockStateManager } from "../test-utils.js";
 
 function makeSession(overrides: Partial<Session> = {}): Session {
   return {
@@ -24,15 +11,6 @@ function makeSession(overrides: Partial<Session> = {}): Session {
     logFile: "/tmp/run.log",
     startedAt: new Date(),
     ...overrides,
-  };
-}
-
-function makeMockBoard() {
-  return {
-    listAvailableTasks: vi.fn(),
-    claimTask: vi.fn(),
-    updateTask: vi.fn(),
-    getTask: vi.fn(),
   };
 }
 
@@ -54,18 +32,6 @@ function makeMockScheduler(hasSlot = true) {
   };
 }
 
-function makeMockStateManager() {
-  return {
-    initRun: vi.fn().mockResolvedValue("/tmp/run"),
-    writeTaskContext: vi.fn().mockResolvedValue(undefined),
-    getRunDir: vi.fn().mockReturnValue("/tmp/run"),
-    readArtifact: vi.fn(),
-    writeArtifact: vi.fn(),
-    listArtifacts: vi.fn(),
-    readTaskContext: vi.fn(),
-  };
-}
-
 const baseConfig = {
   board: "github",
   githubToken: "ghp_test",
@@ -81,13 +47,13 @@ const baseConfig = {
 };
 
 describe("poll", () => {
-  let board: ReturnType<typeof makeMockBoard>;
+  let board: ReturnType<typeof makeMockAdapter>;
   let agent: ReturnType<typeof makeMockAgent>;
   let scheduler: ReturnType<typeof makeMockScheduler>;
   let stateManager: ReturnType<typeof makeMockStateManager>;
 
   beforeEach(() => {
-    board = makeMockBoard();
+    board = makeMockAdapter();
     agent = makeMockAgent();
     scheduler = makeMockScheduler(true);
     stateManager = makeMockStateManager();
