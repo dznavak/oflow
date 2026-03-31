@@ -232,6 +232,25 @@ describe("GitHubBoardAdapter", () => {
         expect.objectContaining({ name: "oflow-in-progress" })
       );
     });
+
+    it("does not throw when removeLabel returns 404 (label already removed)", async () => {
+      mock.issues.addLabels.mockResolvedValue({});
+      mock.issues.removeLabel.mockRejectedValue(
+        Object.assign(new Error("Label does not exist"), { status: 404 })
+      );
+      mock.issues.createComment.mockResolvedValue({});
+
+      await expect(adapter.updateTask("42", { status: "done" })).resolves.not.toThrow();
+    });
+
+    it("re-throws non-404 errors from removeLabel", async () => {
+      mock.issues.addLabels.mockResolvedValue({});
+      mock.issues.removeLabel.mockRejectedValue(
+        Object.assign(new Error("Forbidden"), { status: 403 })
+      );
+
+      await expect(adapter.updateTask("42", { status: "done" })).rejects.toThrow("Forbidden");
+    });
   });
 
   describe("getTask", () => {
