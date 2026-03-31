@@ -11,7 +11,7 @@ Review all code changes made during this task and determine if they are safe to 
 ## Inputs
 Read all artifacts:
 ```bash
-cat .oflow/runs/$(cat .oflow/current)/task-context.json
+cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 oflow state read exploration
 oflow state read plan
 oflow state read validation

@@ -1,17 +1,20 @@
 import { mkdir, writeFile, readFile, readdir } from "fs/promises";
 import { join } from "path";
+import { z } from "zod";
 
-export interface TaskContext {
-  id: string;
-  number: number;
-  title: string;
-  description: string;
-  labels: string[];
-  workflow: string;
-  url: string;
-  repoPath: string;
-  runDir: string;
-}
+export const TaskContextSchema = z.object({
+  id: z.string(),
+  number: z.number(),
+  title: z.string(),
+  description: z.string(),
+  labels: z.array(z.string()),
+  workflow: z.string(),
+  url: z.string(),
+  repoPath: z.string(),
+  runDir: z.string(),
+});
+
+export type TaskContext = z.infer<typeof TaskContextSchema>;
 
 export class StateManager {
   constructor(private repoRoot: string) {}
@@ -56,6 +59,6 @@ export class StateManager {
   async readTaskContext(taskId: string): Promise<TaskContext> {
     const runDir = this.getRunDir(taskId);
     const content = await readFile(join(runDir, "task-context.json"), "utf-8");
-    return JSON.parse(content) as TaskContext;
+    return TaskContextSchema.parse(JSON.parse(content));
   }
 }

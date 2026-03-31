@@ -11,7 +11,7 @@ Confirm that all subtasks were implemented correctly and the full test suite pas
 ## Inputs
 Read all artifacts:
 ```bash
-cat .oflow/runs/$(cat .oflow/current)/task-context.json
+cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 oflow state read plan
 oflow state list
 ```

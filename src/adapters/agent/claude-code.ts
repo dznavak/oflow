@@ -22,8 +22,9 @@ export class ClaudeCodeAdapter implements AgentAdapter {
 
     const prompt = `${skillContent}\n\nTask context:\n${taskContext}`;
 
+    // Open log file for direct fd writes — bypasses the Node.js event loop so
+    // output is captured even if the daemon process is paused (e.g. ^Z).
     const logFd = await open(logFile, "a");
-    const logStream = logFd.createWriteStream();
 
     const claudeCmd = process.env.OFLOW_CLAUDE_CMD ?? "claude";
     const child = spawn(claudeCmd, ["-p", "--dangerously-skip-permissions"], {
@@ -32,7 +33,10 @@ export class ClaudeCodeAdapter implements AgentAdapter {
         ...process.env,
         OFLOW_CURRENT_TASK_ID: taskId,
       },
-      stdio: ["pipe", "pipe", "pipe"],
+      // Write stdout/stderr directly to the log file fd, bypassing Node.js
+      // streams.  This ensures every byte reaches disk regardless of whether
+      // the daemon's event loop is running.
+      stdio: ["pipe", logFd.fd, logFd.fd],
       detached: false,
     });
 
@@ -40,32 +44,27 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     child.stdin.write(prompt);
     child.stdin.end();
 
-    // Prefix each output line with [task-X] and stream to both log file and stdout
+    // Tail the log file to stream output to the terminal (best-effort).
+    // Using a separate tail process decouples terminal display from the log
+    // write, so backpressure on process.stdout never blocks the log.
     const prefix = `[task-${taskId}] `;
-    const makePrefixer = () =>
-      new Transform({
-        transform(chunk, _enc, cb) {
-          const lines = chunk.toString().split("\n");
-          const prefixed = lines
-            .map((l: string) => (l ? prefix + l : l))
-            .join("\n");
-          this.push(prefixed);
-          cb();
-        },
-      });
+    const tail = spawn("tail", ["-f", "-n", "0", logFile], {
+      stdio: ["ignore", "pipe", "ignore"],
+    });
 
-    const stdoutPrefixer = makePrefixer();
-    const stderrPrefixer = makePrefixer();
+    const prefixer = new Transform({
+      transform(chunk, _enc, cb) {
+        const lines = chunk.toString().split("\n");
+        const prefixed = lines
+          .map((l: string) => (l ? prefix + l : l))
+          .join("\n");
+        this.push(prefixed);
+        cb();
+      },
+    });
 
-    if (child.stdout) {
-      child.stdout.pipe(stdoutPrefixer);
-      stdoutPrefixer.pipe(logStream, { end: false });
-      stdoutPrefixer.pipe(process.stdout, { end: false });
-    }
-    if (child.stderr) {
-      child.stderr.pipe(stderrPrefixer);
-      stderrPrefixer.pipe(logStream, { end: false });
-      stderrPrefixer.pipe(process.stderr, { end: false });
+    if (tail.stdout) {
+      tail.stdout.pipe(prefixer).pipe(process.stdout, { end: false });
     }
 
     const session: Session = {
@@ -79,7 +78,8 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     // Track exit code so getStatus can report failed vs completed accurately
     child.on("close", (code) => {
       this.exitCodes.set(session.id, code ?? 1);
-      logStream.end();
+      tail.kill();
+      logFd.close();
     });
 
     this.sessions.set(session.id, session);

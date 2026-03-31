@@ -11,7 +11,7 @@ Deeply understand the codebase and what needs to be done for this task.
 ## Inputs
 Read the task context:
 ```bash
-cat .oflow/runs/$(cat .oflow/current)/task-context.json
+cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 ```
 
 ## Steps
