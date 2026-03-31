@@ -11,7 +11,7 @@ Create a pull request for all changes made in this task, and update the GitHub i
 ## Inputs
 Read the task context and review:
 ```bash
-cat .oflow/runs/$(cat .oflow/current)/task-context.json
+cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 oflow state read plan
 oflow state read validation
 oflow state read review

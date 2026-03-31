@@ -11,7 +11,7 @@ Critically review the implementation plan and determine whether it is ready for 
 ## Inputs
 Read the task context, exploration, and plan:
 ```bash
-cat .oflow/runs/$(cat .oflow/current)/task-context.json
+cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 oflow state read exploration
 oflow state read plan
 ```
