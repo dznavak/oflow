@@ -49,11 +49,15 @@ Use Agent tool with prompt: "Follow the final-validation skill at skills/steps/f
 Verify: `oflow validate validation` exits 0 and verdict is PASS.
 If FAIL: report which tests failed and stop.
 
-### Step 6: Code Review
+### Step 6: E2E Verification
+Use Agent tool with prompt: "Follow the e2e-verification skill at .claude/skills/steps/e2e-verification/SKILL.md"
+If the script exits non-zero: stop, update task status to failed, report the failure reason. Do NOT proceed.
+
+### Step 7: Code Review
 Use Agent tool with prompt: "Follow the code-review skill at skills/steps/code-review.md"
 Verify: `oflow validate review` exits 0 and verdict is PASS (no blockers).
 
-### Step 7: Open PR
+### Step 8: Open PR
 Use Agent tool with prompt: "Follow the open-pr skill at skills/steps/open-pr.md"
 
 ## Error handling
