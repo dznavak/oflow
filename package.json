@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/cli/index.ts",
-    "test": "vitest run --exclude '.worktrees/**'",
+    "test": "vitest run",
     "lint": "eslint src --ext .ts"
   },
   "dependencies": {
