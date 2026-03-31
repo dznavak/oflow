@@ -41,8 +41,9 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     });
 
     // Write prompt via stdin so YAML frontmatter is not parsed as CLI flags
-    child.stdin.write(prompt);
-    child.stdin.end();
+    // stdin is always non-null because we spawned with stdio: ["pipe", ...]
+    child.stdin!.write(prompt);
+    child.stdin!.end();
 
     // Tail the log file to stream output to the terminal (best-effort).
     // Using a separate tail process decouples terminal display from the log
