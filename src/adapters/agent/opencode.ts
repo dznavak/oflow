@@ -1,6 +1,5 @@
 import { spawn } from "child_process";
-import { readFile } from "fs/promises";
-import { open } from "fs/promises";
+import { readFile, open } from "fs/promises";
 import { randomUUID } from "crypto";
 import type {
   AgentAdapter,
