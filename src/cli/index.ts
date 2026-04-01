@@ -3,13 +3,17 @@ import { config as dotenvConfig } from "dotenv";
 dotenvConfig();
 import { Command } from "commander";
 import { resolve } from "path";
+import { createRequire } from "module";
+const { version } = createRequire(import.meta.url)("../../package.json") as {
+  version: string;
+};
 
 const program = new Command();
 
 program
   .name("oflow")
   .description("Workflow automation layer connecting GitHub issue boards to AI coding agents")
-  .version("0.1.0");
+  .version(version);
 
 // board subcommands
 const boardCmd = program.command("board").description("Board management commands");
