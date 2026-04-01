@@ -5,7 +5,7 @@ import { Scheduler } from "../../daemon/scheduler.js";
 import { GitHubBoardAdapter } from "../../adapters/board/github.js";
 import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 import { StateManager } from "../../state/manager.js";
-import { EventEmitter } from "events";
+
 
 const mockTailProcess = {
   kill: vi.fn(),

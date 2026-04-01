@@ -3,7 +3,7 @@ import { StateManager } from "./manager.js";
 import { mkdtemp, rm, readFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
-import { existsSync } from "fs";
+
 
 describe("StateManager", () => {
   let tmpDir: string;
