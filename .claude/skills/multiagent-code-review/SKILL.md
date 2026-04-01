@@ -146,6 +146,7 @@ Do NOT comment on anything outside these two questions — not naming, not style
 Review principles (apply strictly):
 - Only report issues with >80% confidence. If uncertain, stay silent.
 - Smart Brevity: problem (1 sentence) + why it matters (1 sentence, only if not obvious) + file:line reference.
+- Skip: naming preferences, structural suggestions, style opinions. Focus only on missing coverage and fake tests.
 
 Write your findings to: <BRANCH>-review-tests.md
 
