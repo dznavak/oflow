@@ -22,8 +22,9 @@ oflow state list
 Generate the diff:
 ```bash
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
+FORK_POINT=$(git merge-base --fork-point main HEAD 2>/dev/null) || FORK_POINT=$(git merge-base main HEAD)
 git --no-pager diff --no-prefix --unified=100000 --minimal \
-  $(git merge-base main --fork-point)...HEAD \
+  ${FORK_POINT}...HEAD \
   > ${BRANCH}-review-diff.txt
 ```
 
