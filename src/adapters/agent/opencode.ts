@@ -43,8 +43,6 @@ export class OpencodeAdapter implements AgentAdapter {
     if (child.stdout) child.stdout.pipe(logStream);
     if (child.stderr) child.stderr.pipe(logStream);
 
-    child.unref();
-
     const session: Session = {
       id: randomUUID(),
       taskId,
