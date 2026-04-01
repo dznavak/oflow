@@ -118,6 +118,44 @@ program
     await runDaemon(resolve("."), options.label);
   });
 
+// report subcommand
+const reportCmd = program.command("report").description("Emit events to the run event stream");
+
+reportCmd
+  .command("step <step-name>")
+  .description("Emit a step event")
+  .action(async (stepName: string) => {
+    const { reportCmd: report } = await import("./commands/report.js");
+    await report("step", [stepName], {}, resolve("."));
+  });
+
+reportCmd
+  .command("artifact <artifact-name>")
+  .description("Emit an artifact event")
+  .action(async (artifactName: string) => {
+    const { reportCmd: report } = await import("./commands/report.js");
+    await report("artifact", [artifactName], {}, resolve("."));
+  });
+
+reportCmd
+  .command("status")
+  .description("Emit a status event")
+  .option("--tokens <n>", "Token count to include", (v) => parseInt(v, 10))
+  .action(async (options: { tokens?: number }) => {
+    const { reportCmd: report } = await import("./commands/report.js");
+    await report("status", [], { tokens: options.tokens }, resolve("."));
+  });
+
+reportCmd
+  .command("estimate")
+  .description("Emit a complexity estimate event")
+  .option("--score <n>", "Complexity score (1-100)", (v) => parseInt(v, 10))
+  .option("--seconds <n>", "Estimated duration in seconds", (v) => parseInt(v, 10))
+  .action(async (options: { score?: number; seconds?: number }) => {
+    const { reportCmd: report } = await import("./commands/report.js");
+    await report("estimate", [], { score: options.score, seconds: options.seconds }, resolve("."));
+  });
+
 // status command
 program
   .command("status")

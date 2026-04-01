@@ -25,6 +25,9 @@ oflow state read implementation-<N>
 The subtask ID and title will be specified when this skill is invoked.
 
 ## Steps
+```bash
+oflow report step implement-subtask
+```
 1. Read the plan to understand the specific subtask requirements
 2. Read all previous implementation artifacts to understand current state
 3. Write failing tests for the subtask functionality
@@ -69,8 +72,9 @@ status: completed
 EOF
 ```
 
-Then validate:
+Then report the artifact and validate:
 ```bash
+oflow report artifact implementation-<N>
 oflow validate implementation-<N>
 ```
 

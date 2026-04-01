@@ -64,6 +64,16 @@ export const ValidationSchema = z.object({
 
 export type Validation = z.infer<typeof ValidationSchema>;
 
+export const EstimateSchema = z.object({
+  type: z.literal("estimate"),
+  task_id: z.string(),
+  score: z.number().int().min(1).max(100),
+  estimated_seconds: z.number().int().positive(),
+  ts: z.string(),
+});
+
+export type Estimate = z.infer<typeof EstimateSchema>;
+
 export const ReviewSchema = z.object({
   artifact: z.literal("review"),
   task_id: z.string(),

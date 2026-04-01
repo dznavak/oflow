@@ -15,6 +15,9 @@ cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 ```
 
 ## Steps
+```bash
+oflow report step exploration
+```
 1. Read the task title and description carefully
 2. Explore the repository structure: understand the architecture, key files, patterns
 3. Identify which files are likely to need changes
@@ -51,8 +54,9 @@ risks:
 EOF
 ```
 
-Then validate:
+Then report the artifact and validate:
 ```bash
+oflow report artifact exploration
 oflow validate exploration
 ```
 

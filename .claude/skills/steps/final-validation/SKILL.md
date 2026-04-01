@@ -17,6 +17,9 @@ oflow state list
 ```
 
 ## Steps
+```bash
+oflow report step final-validation
+```
 1. Run the full test suite: `npm test`
 2. Capture the test output (pass count, fail count, any errors)
 3. Check that every subtask from the plan has a corresponding implementation artifact
@@ -47,8 +50,9 @@ issues: []
 EOF
 ```
 
-Then validate:
+Then report the artifact and validate:
 ```bash
+oflow report artifact validation
 oflow validate validation
 ```
 

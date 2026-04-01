@@ -24,6 +24,9 @@ oflow state read plan
 - Are open questions actually blocking, or can they be resolved during implementation?
 
 ## Steps
+```bash
+oflow report step review-plan
+```
 1. Read all inputs carefully
 2. Evaluate the plan against the review criteria
 3. Identify any blockers (issues that would cause implementation to fail)
@@ -59,8 +62,9 @@ PASS — the plan is ready for implementation.
 EOF
 ```
 
-Then validate:
+Then report the artifact and validate:
 ```bash
+oflow report artifact plan-review
 oflow validate plan-review
 ```
 
