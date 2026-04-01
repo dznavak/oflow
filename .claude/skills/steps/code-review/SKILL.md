@@ -61,6 +61,9 @@ Discover and read project context — read all that exist:
 - Completeness: are all planned subtasks reflected in the diff?
 
 ## Steps
+```bash
+oflow report step code-review
+```
 1. Read all oflow artifacts for task context
 2. Generate the diff and read it from file
 3. Discover and read project context files
@@ -99,9 +102,10 @@ suggestions:
 EOF
 ```
 
-Then clean up and validate:
+Then clean up, report the artifact, and validate:
 ```bash
 rm -f ${BRANCH}-review-diff.txt
+oflow report artifact review
 oflow validate review
 ```
 

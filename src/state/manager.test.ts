@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { StateManager } from "./manager.js";
-import { mkdtemp, rm } from "fs/promises";
+import { mkdtemp, rm, readFile } from "fs/promises";
 import { tmpdir } from "os";
 import { join } from "path";
+
 
 describe("StateManager", () => {
   let tmpDir: string;
@@ -60,6 +61,20 @@ describe("StateManager", () => {
       const stats = await stat(join(tmpDir, ".oflow", "runs", "42", "exploration.md"));
       expect(stats.isFile()).toBe(true);
     });
+
+    it("auto-emits an artifact event to events.jsonl", async () => {
+      await manager.initRun("42");
+      await manager.writeArtifact("42", "plan", "content");
+
+      const eventsContent = await readFile(manager.eventsPath("42"), "utf-8");
+      const lines = eventsContent.trim().split("\n").filter(Boolean);
+      expect(lines).toHaveLength(1);
+      const event = JSON.parse(lines[0]);
+      expect(event.type).toBe("artifact");
+      expect(event.name).toBe("plan");
+      expect(event.path).toBe("plan.md");
+      expect(typeof event.ts).toBe("string");
+    });
   });
 
   describe("listArtifacts", () => {
@@ -80,6 +95,60 @@ describe("StateManager", () => {
       const artifacts = await manager.listArtifacts("42");
 
       expect(artifacts).toEqual([]);
+    });
+  });
+
+  describe("eventsPath", () => {
+    it("returns the events.jsonl path for a task", () => {
+      const p = manager.eventsPath("42");
+      expect(p).toBe(join(tmpDir, ".oflow", "runs", "42", "events.jsonl"));
+    });
+  });
+
+  describe("appendEvent", () => {
+    it("creates events.jsonl and appends a JSON line", async () => {
+      await manager.initRun("42");
+      await manager.appendEvent("42", { type: "step", step: "exploration", ts: "2026-01-01T00:00:00.000Z" });
+      const content = await readFile(manager.eventsPath("42"), "utf-8");
+      const lines = content.trim().split("\n").filter(Boolean);
+      expect(lines).toHaveLength(1);
+      expect(JSON.parse(lines[0])).toMatchObject({ type: "step", step: "exploration" });
+    });
+
+    it("appends multiple events as separate JSON lines", async () => {
+      await manager.initRun("42");
+      await manager.appendEvent("42", { type: "step", step: "exploration", ts: "2026-01-01T00:00:00.000Z" });
+      await manager.appendEvent("42", { type: "artifact", name: "plan", path: "plan.md", ts: "2026-01-01T00:00:01.000Z" });
+      const content = await readFile(manager.eventsPath("42"), "utf-8");
+      const lines = content.trim().split("\n").filter(Boolean);
+      expect(lines).toHaveLength(2);
+      expect(JSON.parse(lines[0])).toMatchObject({ type: "step" });
+      expect(JSON.parse(lines[1])).toMatchObject({ type: "artifact" });
+    });
+  });
+
+  describe("tailEvents", () => {
+    it("returns a ChildProcess", async () => {
+      await manager.initRun("42");
+      const proc = manager.tailEvents("42", () => {});
+      proc.kill();
+      expect(proc.pid).toBeDefined();
+    });
+
+    it("calls callback with each line written to events.jsonl", async () => {
+      await manager.initRun("42");
+      const lines: string[] = [];
+      const proc = manager.tailEvents("42", (line) => lines.push(line));
+
+      // Give tail time to start, then append
+      await new Promise((r) => setTimeout(r, 100));
+      await manager.appendEvent("42", { type: "step", step: "test", ts: "2026-01-01T00:00:00.000Z" });
+      await new Promise((r) => setTimeout(r, 200));
+
+      proc.kill();
+
+      expect(lines.length).toBeGreaterThanOrEqual(1);
+      expect(JSON.parse(lines[0])).toMatchObject({ type: "step", step: "test" });
     });
   });
 

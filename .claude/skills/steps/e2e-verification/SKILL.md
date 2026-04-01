@@ -9,6 +9,9 @@ You are running the e2e verification step for the oflow dev-workflow.
 Run `scripts/e2e.sh` and report the result. A non-zero exit is treated as a test failure — do NOT proceed to open the PR.
 
 ## Steps
+```bash
+oflow report step e2e-verification
+```
 
 ### 1. Run the e2e test
 ```bash

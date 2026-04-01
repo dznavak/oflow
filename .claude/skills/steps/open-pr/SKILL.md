@@ -20,6 +20,9 @@ oflow state read review
 Get the task ID and repo from the task context.
 
 ## Steps
+```bash
+oflow report step open-pr
+```
 1. Ensure the current branch is not main/master
 2. Push the current branch if not already pushed:
    ```bash

@@ -21,11 +21,18 @@ oflow state read plan-review 2>/dev/null || echo "No previous review"
 ```
 
 ## Steps
+```bash
+oflow report step plan
+```
 1. Study the exploration artifact — understand the repo, relevant files, patterns, risks
 2. Break the task into small, independent subtasks (max 5-7)
 3. Estimate each subtask: small (<30 min), medium (30-90 min), large (>90 min)
 4. Identify open questions that could block implementation
 5. If revising after a FAIL review, address all issues listed in plan-review.md
+6. Estimate overall task complexity (1-100 score) and duration in seconds, then report:
+   ```bash
+   oflow report estimate --score <N> --seconds <N>
+   ```
 
 ## Output
 Write your plan:
@@ -59,8 +66,9 @@ open_questions:
 EOF
 ```
 
-Then validate:
+Then report the artifact and validate:
 ```bash
+oflow report artifact plan
 oflow validate plan
 ```
 
