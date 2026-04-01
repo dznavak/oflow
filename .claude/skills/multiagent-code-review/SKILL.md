@@ -22,15 +22,15 @@ If auto-detection finds nothing, stop and ask the user to provide a base ref exp
 
 ```bash
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
-FORK_POINT=$(git merge-base --fork-point $BASE HEAD 2>/dev/null) || FORK_POINT=$(git merge-base $BASE HEAD)
+FORK_POINT=$(git merge-base --fork-point "$BASE" HEAD 2>/dev/null) || FORK_POINT=$(git merge-base "$BASE" HEAD)
 git --no-pager diff --no-prefix --unified=100000 --minimal \
-  ${FORK_POINT}...HEAD \
-  > ${BRANCH}-review-diff.txt
+  "${FORK_POINT}...HEAD" \
+  > "${BRANCH}-review-diff.txt"
 echo "Diff written to ${BRANCH}-review-diff.txt"
-wc -l ${BRANCH}-review-diff.txt
+wc -c "${BRANCH}-review-diff.txt"
 ```
 
-If the diff file is empty, stop — there is nothing to review.
+If `wc -c` reports 0 bytes, stop — there is nothing to review.
 
 ## Step 3: Discover context files
 
@@ -166,6 +166,8 @@ If you have no findings above the confidence bar, write exactly:
 ## Step 5: Assembly
 
 After all three agents have completed and their findings files exist, dispatch one final assembly agent:
+
+Substitute the actual value of `BRANCH` into this prompt before dispatching.
 
 ```
 You are assembling a final code review report from three specialist reviews.
