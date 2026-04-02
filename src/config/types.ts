@@ -2,6 +2,9 @@ export interface Config {
   board: string;
   githubToken?: string;
   githubRepo?: string;
+  gitlabToken?: string;
+  gitlabProjectId?: string;
+  gitlabUrl?: string;
   taskLabel: string;
   taskInProgressLabel: string;
   taskDoneLabel: string;

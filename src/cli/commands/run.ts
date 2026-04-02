@@ -2,6 +2,7 @@ import { readFile, writeFile, access, appendFile } from "fs/promises";
 import { join } from "path";
 import { loadConfig } from "../../config/loader.js";
 import { GitHubBoardAdapter } from "../../adapters/board/github.js";
+import { GitLabBoardAdapter } from "../../adapters/board/gitlab.js";
 import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 import { OpencodeAdapter } from "../../adapters/agent/opencode.js";
 import { StateManager } from "../../state/manager.js";
@@ -74,7 +75,9 @@ async function extractTokensFromLog(logFile: string): Promise<number | null> {
 
 export async function runDaemon(repoPath: string, label?: string): Promise<void> {
   const config = loadConfig();
-  const board = new GitHubBoardAdapter(config);
+  const board = config.board === "gitlab"
+    ? new GitLabBoardAdapter(config)
+    : new GitHubBoardAdapter(config);
   const stateManager = new StateManager(repoPath);
   const scheduler = new Scheduler(config.maxConcurrentTasks);
   const tailProcesses = new Map<string, ChildProcess>();

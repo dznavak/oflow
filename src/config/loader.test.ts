@@ -73,4 +73,40 @@ describe("loadConfig", () => {
     expect(config.maxConcurrentTasks).toBe(3);
     expect(config.pollIntervalSeconds).toBe(30);
   });
+
+  it("throws if OFLOW_GITLAB_TOKEN is missing when board=gitlab", () => {
+    process.env.OFLOW_BOARD = "gitlab";
+    process.env.OFLOW_GITLAB_PROJECT_ID = "owner/repo";
+    expect(() => loadConfig()).toThrow(/OFLOW_GITLAB_TOKEN/);
+  });
+
+  it("throws if OFLOW_GITLAB_PROJECT_ID is missing when board=gitlab", () => {
+    process.env.OFLOW_BOARD = "gitlab";
+    process.env.OFLOW_GITLAB_TOKEN = "glpat_test";
+    expect(() => loadConfig()).toThrow(/OFLOW_GITLAB_PROJECT_ID/);
+  });
+
+  it("returns typed gitlab config with defaults when required fields present", () => {
+    process.env.OFLOW_BOARD = "gitlab";
+    process.env.OFLOW_GITLAB_TOKEN = "glpat_test";
+    process.env.OFLOW_GITLAB_PROJECT_ID = "owner/repo";
+
+    const config = loadConfig();
+
+    expect(config.board).toBe("gitlab");
+    expect(config.gitlabToken).toBe("glpat_test");
+    expect(config.gitlabProjectId).toBe("owner/repo");
+    expect(config.gitlabUrl).toBe("https://gitlab.com/api/v4");
+  });
+
+  it("uses custom OFLOW_GITLAB_URL when provided for board=gitlab", () => {
+    process.env.OFLOW_BOARD = "gitlab";
+    process.env.OFLOW_GITLAB_TOKEN = "glpat_test";
+    process.env.OFLOW_GITLAB_PROJECT_ID = "owner/repo";
+    process.env.OFLOW_GITLAB_URL = "https://mygitlab.example.com/api/v4";
+
+    const config = loadConfig();
+
+    expect(config.gitlabUrl).toBe("https://mygitlab.example.com/api/v4");
+  });
 });

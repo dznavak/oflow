@@ -3,6 +3,7 @@ import { runDaemon } from "./run.js";
 import * as poller from "../../daemon/poller.js";
 import { Scheduler } from "../../daemon/scheduler.js";
 import { GitHubBoardAdapter } from "../../adapters/board/github.js";
+import { GitLabBoardAdapter } from "../../adapters/board/gitlab.js";
 import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 import { StateManager } from "../../state/manager.js";
 
@@ -24,6 +25,15 @@ vi.mock("../../config/loader.js", () => ({
 
 vi.mock("../../adapters/board/github.js", () => ({
   GitHubBoardAdapter: vi.fn().mockImplementation(() => ({
+    listAvailableTasks: vi.fn().mockResolvedValue([]),
+    claimTask: vi.fn(),
+    updateTask: vi.fn(),
+    getTask: vi.fn(),
+  })),
+}));
+
+vi.mock("../../adapters/board/gitlab.js", () => ({
+  GitLabBoardAdapter: vi.fn().mockImplementation(() => ({
     listAvailableTasks: vi.fn().mockResolvedValue([]),
     claimTask: vi.fn(),
     updateTask: vi.fn(),
@@ -617,6 +627,21 @@ describe("runDaemon", () => {
     expect(written.complexity_score).toBeNull();
     expect(written.estimated_seconds).toBeNull();
     expect(written.status).toBe("completed");
+  });
+
+  it("uses GitHubBoardAdapter when config.board is not 'gitlab'", async () => {
+    let calls = 0;
+    pollSpy.mockImplementation(async () => {
+      calls++;
+      if (calls >= 1) {
+        process.emit("SIGINT" as any);
+      }
+    });
+
+    await runDaemon("/repo");
+
+    expect(GitHubBoardAdapter).toHaveBeenCalled();
+    expect(GitLabBoardAdapter).not.toHaveBeenCalled();
   });
 
   it("prints [done] with token count from run.log on session completion", async () => {

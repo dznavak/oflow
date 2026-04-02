@@ -28,6 +28,16 @@ const githubSchema = z.object({
   }),
 });
 
+const gitlabSchema = z.object({
+  OFLOW_GITLAB_TOKEN: z.string({
+    required_error: "OFLOW_GITLAB_TOKEN is required when OFLOW_BOARD=gitlab",
+  }),
+  OFLOW_GITLAB_PROJECT_ID: z.string({
+    required_error: "OFLOW_GITLAB_PROJECT_ID is required when OFLOW_BOARD=gitlab",
+  }),
+  OFLOW_GITLAB_URL: z.string().default("https://gitlab.com/api/v4"),
+});
+
 export function loadConfig(): Config {
 
   const baseResult = baseSchema.safeParse(process.env);
@@ -50,6 +60,30 @@ export function loadConfig(): Config {
       board: base.OFLOW_BOARD,
       githubToken: gh.OFLOW_GITHUB_TOKEN,
       githubRepo: gh.OFLOW_GITHUB_REPO,
+      taskLabel: base.OFLOW_TASK_LABEL,
+      taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
+      taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
+      agent: base.OFLOW_AGENT,
+      agentModel: base.OFLOW_AGENT_MODEL,
+      maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
+      defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
+      pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
+    };
+  }
+
+  if (base.OFLOW_BOARD === "gitlab") {
+    const glResult = gitlabSchema.safeParse(process.env);
+    if (!glResult.success) {
+      const messages = glResult.error.issues.map((i) => i.message).join("; ");
+      throw new Error(`Configuration error: ${messages}`);
+    }
+
+    const gl = glResult.data;
+    return {
+      board: base.OFLOW_BOARD,
+      gitlabToken: gl.OFLOW_GITLAB_TOKEN,
+      gitlabProjectId: gl.OFLOW_GITLAB_PROJECT_ID,
+      gitlabUrl: gl.OFLOW_GITLAB_URL,
       taskLabel: base.OFLOW_TASK_LABEL,
       taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
       taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
