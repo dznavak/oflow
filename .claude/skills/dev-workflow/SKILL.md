@@ -16,6 +16,17 @@ cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json
 Execute each step by spawning a subagent using the Agent tool.
 After each step, verify the artifact was written and validated before proceeding.
 
+### Step 0: Git Setup
+Before anything else, ensure you are on a clean, up-to-date main branch and create a dedicated branch for this task:
+```bash
+git checkout main
+git pull
+TASK_NUMBER=$(cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json | grep '"number"' | grep -o '[0-9]*')
+TASK_TITLE=$(cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json | grep '"title"' | sed 's/.*"title": *"//;s/".*//' | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g;s/^-//;s/-$//' | cut -c1-40)
+git checkout -b "task/${TASK_NUMBER}-${TASK_TITLE}"
+```
+If the branch already exists, check it out: `git checkout "task/${TASK_NUMBER}-${TASK_TITLE}"`
+
 ### Step 1: Exploration
 Use Agent tool with prompt: "Follow the exploration skill at .claude/skills/steps/exploration/SKILL.md"
 Wait for completion. Verify: `oflow validate exploration` exits 0.
@@ -33,15 +44,6 @@ oflow state read plan-review | head -20
 If verdict is FAIL: return to Step 2 with the review feedback.
 If verdict is PASS: proceed to Step 4.
 Maximum 3 iterations. If still failing after 3: stop, update task status to failed, report blocker.
-
-### Step 3.5: Create a branch for this task
-Before any code changes, create a dedicated branch:
-```bash
-TASK_NUMBER=$(cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json | grep '"number"' | grep -o '[0-9]*')
-TASK_TITLE=$(cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json | grep '"title"' | sed 's/.*"title": *"//;s/".*//' | sed 's/[^a-zA-Z0-9]/-/g' | tr '[:upper:]' '[:lower:]' | sed 's/--*/-/g;s/^-//;s/-$//' | cut -c1-40)
-git checkout -b "task/${TASK_NUMBER}-${TASK_TITLE}"
-```
-If the branch already exists, check it out: `git checkout "task/${TASK_NUMBER}-${TASK_TITLE}"`
 
 ### Step 4: Implementation (one subtask at a time)
 Read the plan to get subtask list:
