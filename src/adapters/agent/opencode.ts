@@ -18,6 +18,7 @@ import type {
  */
 export class OpencodeAdapter implements AgentAdapter {
   private sessions: Map<string, Session> = new Map();
+  private exitCodes: Map<string, number> = new Map();
 
   async spawn(options: SpawnOptions): Promise<Session> {
     const { skill, taskContextFile, repoPath, taskId, logFile } = options;
@@ -50,6 +51,12 @@ export class OpencodeAdapter implements AgentAdapter {
       startedAt: new Date(),
     };
 
+    // Track exit code so getStatus can report failed vs completed accurately
+    child.on("close", (code) => {
+      this.exitCodes.set(session.id, code ?? 1);
+      logFd.close();
+    });
+
     this.sessions.set(session.id, session);
     return session;
   }
@@ -58,12 +65,17 @@ export class OpencodeAdapter implements AgentAdapter {
     const session = this.sessions.get(sessionId);
     if (!session) return "failed";
 
+    if (this.exitCodes.has(sessionId)) {
+      return this.exitCodes.get(sessionId) === 0 ? "completed" : "failed";
+    }
+
     try {
       process.kill(session.pid, 0);
       return "running";
     } catch (err) {
       const error = err as NodeJS.ErrnoException;
       if (error.code === "ESRCH") {
+        // Process gone but no exit code recorded yet — treat as completed
         return "completed";
       }
       return "failed";
@@ -82,9 +94,10 @@ export class OpencodeAdapter implements AgentAdapter {
         const status = await this.getStatus(sessionId);
         if (status !== "running") {
           clearInterval(checkInterval);
+          const exitCode = this.exitCodes.get(sessionId) ?? (status === "completed" ? 0 : 1);
           resolve({
             status: status === "completed" ? "completed" : "failed",
-            exitCode: status === "completed" ? 0 : 1,
+            exitCode,
             duration: Date.now() - startTime,
           });
         }

@@ -55,6 +55,15 @@ Then open `.env` and set at minimum `OFLOW_GITHUB_TOKEN` and `OFLOW_GITHUB_REPO`
 | `OFLOW_DEFAULT_WORKFLOW` | No | `dev-workflow` | Skill workflow name invoked at the start of each Claude Code session. |
 | `OFLOW_POLL_INTERVAL_SECONDS` | No | `60` | How often (in seconds) the daemon polls GitHub for new ready tasks. |
 
+### Agents
+
+oflow supports two agent adapters, selected via the `OFLOW_AGENT` environment variable:
+
+- **`claude-code`** (default) — spawns a Claude Code (`claude`) session for each task. Each skill step dispatches a native subagent, so steps run in isolated contexts with full tool access.
+- **`opencode`** — spawns an `opencode` session for each task. Because opencode does not support native subagent dispatch, all skill steps execute sequentially within a single session context. This means the entire dev-workflow runs in one continuous conversation rather than per-step subagents.
+
+Set `OFLOW_AGENT=opencode` in your `.env` file to use the opencode adapter.
+
 ## Usage
 
 ### Daemon mode
