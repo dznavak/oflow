@@ -233,6 +233,24 @@ describe("GitHubBoardAdapter", () => {
       );
     });
 
+    it("restores oflow-ready label and removes oflow-in-progress when status is failed", async () => {
+      mock.issues.createComment.mockResolvedValue({});
+      mock.issues.addLabels.mockResolvedValue({});
+      mock.issues.removeLabel.mockResolvedValue({});
+      mock.issues.get.mockResolvedValue({
+        data: makeIssue({ labels: [{ name: "oflow-in-progress" }] }),
+      });
+
+      await adapter.updateTask("42", { status: "failed" });
+
+      expect(mock.issues.addLabels).toHaveBeenCalledWith(
+        expect.objectContaining({ labels: ["oflow-ready"] })
+      );
+      expect(mock.issues.removeLabel).toHaveBeenCalledWith(
+        expect.objectContaining({ name: "oflow-in-progress" })
+      );
+    });
+
     it("does not throw when removeLabel returns 404 (label already removed)", async () => {
       mock.issues.addLabels.mockResolvedValue({});
       mock.issues.removeLabel.mockRejectedValue(
