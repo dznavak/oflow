@@ -178,14 +178,14 @@ describe("GitLabBoardAdapter", () => {
       expect(putBody.get("remove_labels")).toBe("oflow-in-progress");
     });
 
-    it("swaps labels when status is failed", async () => {
+    it("restores oflow-ready and removes oflow-in-progress when status is failed", async () => {
       const fetchMock = mockFetch([{ status: 200, body: makeIssue() }]);
       vi.stubGlobal("fetch", fetchMock);
 
       await adapter.updateTask("42", { status: "failed" });
 
       const putBody = new URLSearchParams((fetchMock.mock.calls[0][1] as RequestInit).body as string);
-      expect(putBody.get("add_labels")).toBe("oflow-done");
+      expect(putBody.get("add_labels")).toBe("oflow-ready");
       expect(putBody.get("remove_labels")).toBe("oflow-in-progress");
     });
 
