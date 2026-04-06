@@ -142,9 +142,9 @@ describe("runDaemon", () => {
       process.emit("SIGINT" as any);
     });
 
-    // activeSessions is called 4 times per loop iteration:
+    // activeSessions is called 5 times per loop iteration:
     // 1. idsBefore snapshot, 2. activesAfter size, 3. new-sessions log loop,
-    // 4. completed-sessions check — only the 4th call should return the session
+    // 4. writeSessionsJson, 5. completed-sessions check — only the 5th call should return the session
     let activeSessionsCallCount = 0;
     (Scheduler as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
       hasSlot: vi.fn().mockReturnValue(false),
@@ -152,7 +152,7 @@ describe("runDaemon", () => {
       removeSession,
       activeSessions: vi.fn().mockImplementation(() => {
         activeSessionsCallCount++;
-        return activeSessionsCallCount === 4
+        return activeSessionsCallCount === 5
           ? new Map([["42", session]])
           : new Map();
       }),
@@ -255,7 +255,7 @@ describe("runDaemon", () => {
       }),
       activeSessions: vi.fn().mockImplementation(() => {
         activeSessionsCallCount++;
-        // Loop iteration 1: idsBefore=empty(1), activesAfter=session(2), new-sessions=session(3), completion-check=session(4)
+        // Loop iteration 1: idsBefore=empty(1), activesAfter=session(2), new-sessions=session(3), writeSessionsJson=session(4), completion-check=session(5)
         if (activeSessionsCallCount === 1) return new Map(); // idsBefore empty => new session
         return new Map([["42", session]]);
       }),
@@ -627,6 +627,124 @@ describe("runDaemon", () => {
     expect(written.complexity_score).toBeNull();
     expect(written.estimated_seconds).toBeNull();
     expect(written.status).toBe("completed");
+  });
+
+  it("writes sessions.json after new sessions are detected", async () => {
+    const fsMod = await import("fs/promises");
+    const writeFileMock = fsMod.writeFile as ReturnType<typeof vi.fn>;
+
+    const session = {
+      id: "session-1",
+      taskId: "42",
+      pid: 12345,
+      logFile: "/tmp/run.log",
+      startedAt: new Date("2026-04-06T10:00:00.000Z"),
+    };
+
+    let activeSessionsCallCount = 0;
+
+    (Scheduler as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      hasSlot: vi.fn().mockReturnValue(false),
+      addSession: vi.fn(),
+      removeSession: vi.fn(),
+      activeSessions: vi.fn().mockImplementation(() => {
+        activeSessionsCallCount++;
+        // Call 1: idsBefore=empty, calls 2-3: session (new session detected), call 4: SIGINT+session for completion check
+        if (activeSessionsCallCount === 1) return new Map();
+        if (activeSessionsCallCount === 4) {
+          process.emit("SIGINT" as any);
+        }
+        return new Map([["42", session]]);
+      }),
+    }));
+
+    (ClaudeCodeAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      spawn: vi.fn(),
+      getStatus: vi.fn().mockResolvedValue("running"),
+    }));
+
+    pollSpy.mockResolvedValue(undefined);
+
+    await runDaemon("/repo");
+
+    const sessionsJsonCalls = writeFileMock.mock.calls.filter(
+      (args: unknown[]) => typeof args[0] === "string" && (args[0] as string).endsWith("sessions.json")
+    );
+    expect(sessionsJsonCalls.length).toBeGreaterThan(0);
+
+    const writtenContent = JSON.parse(sessionsJsonCalls[0][1] as string) as Array<Record<string, unknown>>;
+    expect(writtenContent).toHaveLength(1);
+    expect(writtenContent[0].taskId).toBe("42");
+    expect(writtenContent[0].pid).toBe(12345);
+    expect(writtenContent[0].logFile).toBe("/tmp/run.log");
+    expect(writtenContent[0].startedAt).toBe("2026-04-06T10:00:00.000Z");
+  });
+
+  it("writes sessions.json after a session is removed in the finally block", async () => {
+    const fsMod = await import("fs/promises");
+    const writeFileMock = fsMod.writeFile as ReturnType<typeof vi.fn>;
+
+    const session = {
+      id: "session-1",
+      taskId: "42",
+      pid: 12345,
+      logFile: "/tmp/run.log",
+      startedAt: new Date("2026-04-06T10:00:00.000Z"),
+    };
+
+    let activeSessionsCallCount = 0;
+
+    (Scheduler as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      hasSlot: vi.fn().mockReturnValue(false),
+      addSession: vi.fn(),
+      removeSession: vi.fn().mockImplementation(() => {
+        process.emit("SIGINT" as any);
+      }),
+      activeSessions: vi.fn().mockImplementation(() => {
+        activeSessionsCallCount++;
+        // activeSessions call sequence per loop iteration:
+        // 1. idsBefore snapshot (empty => "42" looks new)
+        // 2. activesAfter size
+        // 3. new-sessions log loop
+        // 4. writeSessionsJson after new-sessions loop
+        // 5. completed-sessions check => returns session so completion fires
+        // After removeSession, writeSessionsJson is called again (call 6) => returns empty
+        if (activeSessionsCallCount === 1) return new Map(); // idsBefore empty
+        if (activeSessionsCallCount <= 5) return new Map([["42", session]]);
+        return new Map(); // after removeSession, empty
+      }),
+    }));
+
+    (ClaudeCodeAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      spawn: vi.fn(),
+      getStatus: vi.fn().mockResolvedValue("completed"),
+    }));
+
+    (GitHubBoardAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      listAvailableTasks: vi.fn().mockResolvedValue([]),
+      claimTask: vi.fn(),
+      updateTask: vi.fn().mockResolvedValue(undefined),
+      getTask: vi.fn(),
+    }));
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    pollSpy.mockResolvedValue(undefined);
+
+    await runDaemon("/repo");
+
+    consoleSpy.mockRestore();
+
+    const sessionsJsonCalls = writeFileMock.mock.calls.filter(
+      (args: unknown[]) => typeof args[0] === "string" && (args[0] as string).endsWith("sessions.json")
+    );
+    // Should be written at least twice: once after new-sessions loop, once after removeSession
+    expect(sessionsJsonCalls.length).toBeGreaterThanOrEqual(2);
+
+    // The last write should contain an empty array (session was removed)
+    const lastWritten = JSON.parse(
+      sessionsJsonCalls[sessionsJsonCalls.length - 1][1] as string
+    ) as Array<Record<string, unknown>>;
+    expect(lastWritten).toHaveLength(0);
   });
 
   it("uses GitHubBoardAdapter when config.board is not 'gitlab'", async () => {
