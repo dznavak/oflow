@@ -1,5 +1,5 @@
 import { spawn } from "child_process";
-import { readFile, writeFile, open } from "fs/promises";
+import { readFile, open } from "fs/promises";
 import { randomUUID } from "crypto";
 import { Transform } from "stream";
 import type {
@@ -137,11 +137,4 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     return readFile(session.logFile, "utf-8");
   }
 
-  async writeSessionsFile(path: string): Promise<void> {
-    const sessions = Array.from(this.sessions.values()).map((s) => ({
-      ...s,
-      startedAt: s.startedAt.toISOString(),
-    }));
-    await writeFile(path, JSON.stringify(sessions, null, 2), "utf-8");
-  }
 }

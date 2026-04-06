@@ -102,7 +102,7 @@ export class GitHubBoardAdapter implements BoardAdapter {
       const labelMap: Record<string, string> = {
         "in-progress": this.config.taskInProgressLabel,
         done: this.config.taskDoneLabel,
-        failed: this.config.taskDoneLabel,
+        failed: this.config.taskLabel,
       };
 
       const removeMap: Record<string, string> = {

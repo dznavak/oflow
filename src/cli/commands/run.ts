@@ -73,6 +73,18 @@ async function extractTokensFromLog(logFile: string): Promise<number | null> {
   return match ? parseInt(match[1], 10) : null;
 }
 
+async function writeSessionsJson(repoPath: string, scheduler: Scheduler): Promise<void> {
+  const sessions = Array.from(scheduler.activeSessions().values()).map((s) => ({
+    id: s.id,
+    taskId: s.taskId,
+    pid: s.pid,
+    logFile: s.logFile,
+    startedAt: s.startedAt.toISOString(),
+  }));
+  const sessionsFile = join(repoPath, ".oflow", "sessions.json");
+  await writeFile(sessionsFile, JSON.stringify(sessions), "utf-8");
+}
+
 export async function runDaemon(repoPath: string, label?: string): Promise<void> {
   const config = loadConfig();
   const board = config.board === "gitlab"
@@ -136,6 +148,13 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
         log(`No tasks available. Polling again in ${config.pollIntervalSeconds}s`);
       }
 
+      // Persist active sessions to disk so the status command can read them
+      try {
+        await writeSessionsJson(repoPath, scheduler);
+      } catch (sessErr) {
+        log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
+      }
+
       // Check completed sessions and emit active heartbeats
       for (const [taskId, session] of scheduler.activeSessions()) {
         const status = await agent.getStatus(session.id);
@@ -182,6 +201,11 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
             });
           } finally {
             scheduler.removeSession(taskId);
+            try {
+              await writeSessionsJson(repoPath, scheduler);
+            } catch (sessErr) {
+              log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
+            }
           }
         } else {
           // Emit active heartbeat for running sessions
