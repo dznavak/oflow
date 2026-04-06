@@ -28,20 +28,16 @@ export async function validateArtifactCmd(
   try {
     content = await readFile(artifactFile, "utf-8");
   } catch {
-    console.error(`Error: artifact file not found: ${artifactFile}`);
-    process.exit(1);
+    throw new Error(`artifact file not found: ${artifactFile}`);
   }
 
   const result = validateArtifact(artifactName, content);
 
   if (result.success) {
     console.log(`✓ ${artifactName} is valid`);
-    process.exit(0);
+    return;
   } else {
-    console.error(`✗ ${artifactName} validation failed:`);
-    for (const error of result.errors) {
-      console.error(`  - ${error}`);
-    }
-    process.exit(1);
+    const errorLines = result.errors.map((e) => `  - ${e}`).join("\n");
+    throw new Error(`${artifactName} validation failed:\n${errorLines}`);
   }
 }

@@ -105,7 +105,12 @@ program
   .description("Validate an artifact against its schema (exits 0/1)")
   .action(async (artifactName: string) => {
     const { validateArtifactCmd } = await import("./commands/validate.js");
-    await validateArtifactCmd(artifactName, resolve("."));
+    try {
+      await validateArtifactCmd(artifactName, resolve("."));
+    } catch (err) {
+      console.error((err as Error).message);
+      process.exit(1);
+    }
   });
 
 // run command
