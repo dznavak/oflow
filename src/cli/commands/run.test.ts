@@ -20,6 +20,7 @@ vi.mock("../../config/loader.js", () => ({
     pollIntervalSeconds: 30,
     maxConcurrentTasks: 1,
     agent: "claude-code",
+    stepTimeoutSeconds: 900,
   }),
 }));
 
@@ -758,6 +759,114 @@ describe("runDaemon", () => {
 
     expect(GitHubBoardAdapter).toHaveBeenCalled();
     expect(GitLabBoardAdapter).not.toHaveBeenCalled();
+  });
+
+  it("enforces step timeout: kills agent, writes timed-out task-log row, updates board with failed, removes session", async () => {
+    const fsMod = await import("fs/promises");
+    const appendFileMock = fsMod.appendFile as ReturnType<typeof vi.fn>;
+
+    // Session started well beyond the 900s timeout
+    const session = {
+      id: "session-1",
+      taskId: "42",
+      pid: 12345,
+      logFile: "/tmp/run.log",
+      startedAt: new Date(Date.now() - 1000 * 1000), // 1000s ago
+    };
+
+    const killFn = vi.fn().mockResolvedValue(undefined);
+    const removeSession = vi.fn().mockImplementation(() => {
+      process.emit("SIGINT" as any);
+    });
+
+    const readTaskContextFn = vi.fn().mockResolvedValue({
+      id: "42",
+      number: 42,
+      title: "Timeout Task",
+      description: "",
+      labels: [],
+      workflow: "dev-workflow",
+      url: "",
+      repoPath: "/repo",
+      runDir: "/repo/.oflow/runs/42",
+    });
+
+    const appendEventFn = vi.fn().mockResolvedValue(undefined);
+
+    let activeSessionsCallCount = 0;
+
+    (StateManager as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      initRun: vi.fn(),
+      writeTaskContext: vi.fn(),
+      readTaskContext: readTaskContextFn,
+      getRunDir: vi.fn().mockReturnValue("/repo/.oflow/runs/42"),
+      eventsPath: vi.fn().mockReturnValue("/repo/.oflow/runs/42/events.jsonl"),
+      tailEvents: vi.fn().mockReturnValue(mockTailProcess),
+      appendEvent: appendEventFn,
+    }));
+
+    (Scheduler as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      hasSlot: vi.fn().mockReturnValue(false),
+      addSession: vi.fn(),
+      removeSession,
+      activeSessions: vi.fn().mockImplementation(() => {
+        activeSessionsCallCount++;
+        if (activeSessionsCallCount === 1) return new Map(); // idsBefore empty
+        return new Map([["42", session]]);
+      }),
+    }));
+
+    (ClaudeCodeAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      spawn: vi.fn(),
+      getStatus: vi.fn().mockResolvedValue("running"),
+      kill: killFn,
+    }));
+
+    const updateTaskFn = vi.fn().mockResolvedValue(undefined);
+
+    (GitHubBoardAdapter as ReturnType<typeof vi.fn>).mockImplementationOnce(() => ({
+      listAvailableTasks: vi.fn().mockResolvedValue([]),
+      claimTask: vi.fn(),
+      updateTask: updateTaskFn,
+      getTask: vi.fn(),
+    }));
+
+    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    pollSpy.mockResolvedValue(undefined);
+
+    await runDaemon("/repo");
+
+    // Check [timeout] log before restore
+    const timeoutLogs = consoleSpy.mock.calls
+      .map((args) => args[0] as string)
+      .filter((msg) => msg?.includes("[timeout]"));
+
+    consoleSpy.mockRestore();
+
+    // [timeout] log message must have been emitted
+    expect(timeoutLogs.length).toBeGreaterThan(0);
+    expect(timeoutLogs[0]).toMatch(/\[task-42\] \[timeout\] step timed out after \d+s/);
+
+    // agent.kill() must have been called
+    expect(killFn).toHaveBeenCalledWith("session-1");
+
+    // appendEvent must have been called with a timeout event
+    expect(appendEventFn).toHaveBeenCalledWith("42", expect.objectContaining({ type: "timeout" }));
+
+    // task-log.jsonl must contain a row with status "timed-out"
+    const taskLogCalls = appendFileMock.mock.calls.filter(
+      (args: unknown[]) => typeof args[0] === "string" && (args[0] as string).endsWith("task-log.jsonl")
+    );
+    expect(taskLogCalls.length).toBeGreaterThan(0);
+    const written = JSON.parse(taskLogCalls[0][1] as string);
+    expect(written.task_id).toBe("42");
+    expect(written.status).toBe("timed-out");
+
+    // board.updateTask must have been called with status "failed"
+    expect(updateTaskFn).toHaveBeenCalledWith("42", expect.objectContaining({ status: "failed" }));
+
+    // session must have been removed
+    expect(removeSession).toHaveBeenCalledWith("42");
   });
 
   it("prints [done] with token count from run.log on session completion", async () => {

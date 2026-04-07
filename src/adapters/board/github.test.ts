@@ -44,6 +44,7 @@ const defaultConfig = {
   maxConcurrentTasks: 1,
   defaultWorkflow: "dev-workflow",
   pollIntervalSeconds: 60,
+  stepTimeoutSeconds: 900,
 };
 
 function makeIssue(overrides: Partial<{

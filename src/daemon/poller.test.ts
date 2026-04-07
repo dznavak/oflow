@@ -20,6 +20,7 @@ function makeMockAgent() {
     getStatus: vi.fn(),
     waitForCompletion: vi.fn(),
     getLogs: vi.fn(),
+    kill: vi.fn(),
   };
 }
 

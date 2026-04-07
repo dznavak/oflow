@@ -17,6 +17,10 @@ const baseSchema = z.object({
     .string()
     .default("60")
     .transform((v) => parseInt(v, 10)),
+  OFLOW_STEP_TIMEOUT_SECONDS: z
+    .string()
+    .default("900")
+    .transform((v) => parseInt(v, 10)),
 });
 
 const githubSchema = z.object({
@@ -68,6 +72,7 @@ export function loadConfig(): Config {
       maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
       defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
       pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
+      stepTimeoutSeconds: base.OFLOW_STEP_TIMEOUT_SECONDS,
     };
   }
 
@@ -92,6 +97,7 @@ export function loadConfig(): Config {
       maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
       defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
       pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
+      stepTimeoutSeconds: base.OFLOW_STEP_TIMEOUT_SECONDS,
     };
   }
 
@@ -105,5 +111,6 @@ export function loadConfig(): Config {
     maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
     defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
     pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
+    stepTimeoutSeconds: base.OFLOW_STEP_TIMEOUT_SECONDS,
   };
 }

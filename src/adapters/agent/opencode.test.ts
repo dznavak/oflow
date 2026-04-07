@@ -380,6 +380,160 @@ describe("OpencodeAdapter", () => {
     });
   });
 
+  describe("kill", () => {
+    function makeSpawnMockForKill(closeHandlerRef: { value?: (code: number | null) => void }, childKillFn: ReturnType<typeof vi.fn>) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (spawnMock as any).mockReturnValue({
+        pid: 99999,
+        stdout: { pipe: vi.fn() },
+        stderr: { pipe: vi.fn() },
+        on: vi.fn((event: string, handler: (code: number | null) => void) => {
+          if (event === "close") closeHandlerRef.value = handler;
+        }),
+        kill: childKillFn,
+        unref: vi.fn(),
+      });
+    }
+
+    it("sends SIGTERM to the child process", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const childKillFn = vi.fn();
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMockForKill(closeHandlerRef, childKillFn);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      await adapter.kill(session.id);
+
+      expect(childKillFn).toHaveBeenCalledWith("SIGTERM");
+    });
+
+    it("sets exitCode to -1 immediately so getStatus returns timed-out", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const childKillFn = vi.fn();
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMockForKill(closeHandlerRef, childKillFn);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      await adapter.kill(session.id);
+
+      const status = await adapter.getStatus(session.id);
+      expect(status).toBe("timed-out");
+    });
+
+    it("resolves waitForCompletion with timed-out result", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const childKillFn = vi.fn();
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMockForKill(closeHandlerRef, childKillFn);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      const resultPromise = adapter.waitForCompletion(session.id);
+      await adapter.kill(session.id);
+
+      const result = await resultPromise;
+      expect(result.status).toBe("timed-out");
+      expect(result.exitCode).toBe(-1);
+    });
+
+    it("waitForCompletion called after kill() returns timed-out via early-return path", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const childKillFn = vi.fn();
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMockForKill(closeHandlerRef, childKillFn);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      // kill() sets sentinel exitCode -1 before waitForCompletion is called
+      await adapter.kill(session.id);
+      const result = await adapter.waitForCompletion(session.id);
+
+      expect(result.status).toBe("timed-out");
+      expect(result.exitCode).toBe(-1);
+    });
+
+    it("close handler is a no-op after kill() (no double-resolve)", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const childKillFn = vi.fn();
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMockForKill(closeHandlerRef, childKillFn);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      const resultPromise = adapter.waitForCompletion(session.id);
+      await adapter.kill(session.id);
+      const result = await resultPromise;
+
+      // Simulate the close event firing after kill() already resolved the promise
+      expect(() => closeHandlerRef.value?.(0)).not.toThrow();
+
+      // Result from kill() must still be timed-out
+      expect(result.status).toBe("timed-out");
+    });
+  });
+
   describe("getLogs", () => {
     it("reads logFile content", async () => {
       const skillFile = join(tmpDir, "skill.md");

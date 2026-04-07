@@ -13,4 +13,5 @@ export interface Config {
   maxConcurrentTasks: number;
   defaultWorkflow: string;
   pollIntervalSeconds: number;
+  stepTimeoutSeconds: number;
 }
