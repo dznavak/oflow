@@ -12,10 +12,25 @@ vi.mock("child_process", () => {
     stdout: null,
     stderr: null,
     on: vi.fn(),
+    kill: vi.fn(),
     unref: vi.fn(),
   };
   return {
     spawn: vi.fn(() => mockProcess),
+  };
+});
+
+// Mock fs/promises to return a fake FileHandle (avoids unclosed fd GC errors)
+const mockLogFd = {
+  fd: 5,
+  close: vi.fn().mockResolvedValue(undefined),
+};
+
+vi.mock("fs/promises", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("fs/promises")>();
+  return {
+    ...actual,
+    open: vi.fn(async (_path: string, _flags: string) => mockLogFd),
   };
 });
 
@@ -30,12 +45,14 @@ describe("ClaudeCodeAdapter", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockLogFd.close.mockResolvedValue(undefined);
     tmpDir = await mkdtemp(join(tmpdir(), "oflow-agent-test-"));
     adapter = new ClaudeCodeAdapter();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     _mockChildProcess = (spawnMock as any).mock.results[0]?.value ?? {
       pid: 99999,
       on: vi.fn(),
+      kill: vi.fn(),
       unref: vi.fn(),
     };
   });
@@ -206,6 +223,90 @@ describe("ClaudeCodeAdapter", () => {
       const status = await adapter.getStatus(session.id);
       expect(status).toBe("completed");
       killSpy.mockRestore();
+    });
+  });
+
+  describe("waitForCompletion", () => {
+    function makeSpawnMocks(closeHandlerRef: { value?: (code: number | null) => void }) {
+      // claude process — captures the close handler
+      const claudeMock = {
+        pid: 99999,
+        stdin: { write: vi.fn(), end: vi.fn() },
+        stdout: null,
+        stderr: null,
+        on: vi.fn((event: string, handler: (code: number | null) => void) => {
+          if (event === "close") closeHandlerRef.value = handler;
+        }),
+        kill: vi.fn(),
+        unref: vi.fn(),
+      };
+      // tail process — no close handler needed
+      const tailMock = {
+        pid: 88888,
+        stdin: null,
+        stdout: null,
+        stderr: null,
+        on: vi.fn(),
+        kill: vi.fn(),
+        unref: vi.fn(),
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (spawnMock as any).mockReturnValueOnce(claudeMock).mockReturnValueOnce(tailMock);
+    }
+
+    it("resolves with exit code after process closes (already-exited race case)", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMocks(closeHandlerRef);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      // Simulate process exit before waitForCompletion is called
+      closeHandlerRef.value?.(0);
+
+      const result = await adapter.waitForCompletion(session.id);
+      expect(result.exitCode).toBe(0);
+      expect(result.status).toBe("completed");
+    });
+
+    it("resolves with failed status when process exits with non-zero code", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMocks(closeHandlerRef);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      // Start waiting, then fire close handler
+      const resultPromise = adapter.waitForCompletion(session.id);
+      closeHandlerRef.value?.(1);
+
+      const result = await resultPromise;
+      expect(result.exitCode).toBe(1);
+      expect(result.status).toBe("failed");
     });
   });
 
