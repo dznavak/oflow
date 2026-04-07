@@ -121,7 +121,7 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
 
   log(`oflow daemon started`);
   log(`  board:  ${config.board} / ${config.githubRepo}`);
-  log(`  agent:  ${config.agent} (${config.agentModel})`);
+  log(`  agent:  ${config.agent}`);
   log(`  label:  ${label ?? config.taskLabel}`);
   log(`  slots:  ${config.maxConcurrentTasks}`);
   log(`  poll:   every ${config.pollIntervalSeconds}s`);

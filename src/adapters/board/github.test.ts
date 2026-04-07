@@ -40,7 +40,6 @@ const defaultConfig = {
   taskInProgressLabel: "oflow-in-progress",
   taskDoneLabel: "oflow-done",
   agent: "claude-code",
-  agentModel: "claude-opus-4-6",
   maxConcurrentTasks: 1,
   defaultWorkflow: "dev-workflow",
   pollIntervalSeconds: 60,

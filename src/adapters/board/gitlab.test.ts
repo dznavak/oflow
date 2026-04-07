@@ -11,7 +11,6 @@ const defaultConfig = {
   taskDoneLabel: "oflow-done",
   taskFailedLabel: "oflow-failed",
   agent: "claude-code",
-  agentModel: "claude-opus-4-6",
   maxConcurrentTasks: 1,
   defaultWorkflow: "dev-workflow",
   pollIntervalSeconds: 60,
