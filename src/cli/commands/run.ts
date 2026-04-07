@@ -129,7 +129,7 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
   while (running) {
     try {
       const idsBefore = new Set(scheduler.activeSessions().keys());
-      await poll(board, scheduler, agent, stateManager, config, repoPath, label);
+      await poll(board, scheduler, agent, stateManager, repoPath, label);
       const activesAfter = scheduler.activeSessions().size;
 
       // Log newly spawned sessions and start tailing their events

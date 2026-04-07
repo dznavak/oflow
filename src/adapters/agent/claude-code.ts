@@ -13,6 +13,7 @@ import type {
 export class ClaudeCodeAdapter implements AgentAdapter {
   private sessions: Map<string, Session> = new Map();
   private exitCodes: Map<string, number> = new Map();
+  private completionResolvers: Map<string, (result: SessionResult) => void> = new Map();
 
   async spawn(options: SpawnOptions): Promise<Session> {
     const { skill, taskContextFile, repoPath, taskId, logFile } = options;
@@ -78,9 +79,20 @@ export class ClaudeCodeAdapter implements AgentAdapter {
 
     // Track exit code so getStatus can report failed vs completed accurately
     child.on("close", (code) => {
-      this.exitCodes.set(session.id, code ?? 1);
+      const exitCode = code ?? 1;
+      this.exitCodes.set(session.id, exitCode);
       tail.kill();
       logFd.close();
+
+      const resolver = this.completionResolvers.get(session.id);
+      if (resolver) {
+        this.completionResolvers.delete(session.id);
+        resolver({
+          status: exitCode === 0 ? "completed" : "failed",
+          exitCode,
+          duration: Date.now() - session.startedAt.getTime(),
+        });
+      }
     });
 
     this.sessions.set(session.id, session);
@@ -109,25 +121,22 @@ export class ClaudeCodeAdapter implements AgentAdapter {
   }
 
   async waitForCompletion(sessionId: string): Promise<SessionResult> {
-    const startTime = Date.now();
     const session = this.sessions.get(sessionId);
     if (!session) {
       return { status: "failed", exitCode: -1, duration: 0 };
     }
 
+    if (this.exitCodes.has(sessionId)) {
+      const exitCode = this.exitCodes.get(sessionId)!;
+      return {
+        status: exitCode === 0 ? "completed" : "failed",
+        exitCode,
+        duration: Date.now() - session.startedAt.getTime(),
+      };
+    }
+
     return new Promise((resolve) => {
-      const checkInterval = setInterval(async () => {
-        const status = await this.getStatus(sessionId);
-        if (status !== "running") {
-          clearInterval(checkInterval);
-          const exitCode = this.exitCodes.get(sessionId) ?? (status === "completed" ? 0 : 1);
-          resolve({
-            status: status === "completed" ? "completed" : "failed",
-            exitCode,
-            duration: Date.now() - startTime,
-          });
-        }
-      }, 1000);
+      this.completionResolvers.set(sessionId, resolve);
     });
   }
 

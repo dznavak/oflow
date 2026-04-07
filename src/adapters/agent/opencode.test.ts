@@ -284,6 +284,19 @@ describe("OpencodeAdapter", () => {
   });
 
   describe("waitForCompletion", () => {
+    function makeSpawnMock(closeHandlerRef: { value?: (code: number | null) => void }) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (spawnMock as any).mockReturnValue({
+        pid: 99999,
+        stdout: { pipe: vi.fn() },
+        stderr: { pipe: vi.fn() },
+        on: vi.fn((event: string, handler: (code: number | null) => void) => {
+          if (event === "close") closeHandlerRef.value = handler;
+        }),
+        unref: vi.fn(),
+      });
+    }
+
     it("returns actual exit code from exitCodes map", async () => {
       const skillFile = join(tmpDir, "skill.md");
       const taskContextFile = join(tmpDir, "task-context.json");
@@ -292,17 +305,8 @@ describe("OpencodeAdapter", () => {
       await writeFile(taskContextFile, "{}");
       await writeFile(logFile, "");
 
-      let closeHandler: ((code: number | null) => void) | undefined;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (spawnMock as any).mockReturnValue({
-        pid: 99999,
-        stdout: { pipe: vi.fn() },
-        stderr: { pipe: vi.fn() },
-        on: vi.fn((event: string, handler: (code: number | null) => void) => {
-          if (event === "close") closeHandler = handler;
-        }),
-        unref: vi.fn(),
-      });
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMock(closeHandlerRef);
 
       const session = await adapter.spawn({
         skill: skillFile,
@@ -313,10 +317,65 @@ describe("OpencodeAdapter", () => {
       });
 
       // Simulate process exit with code 42 (non-zero)
-      closeHandler?.(42);
+      closeHandlerRef.value?.(42);
 
       const result = await adapter.waitForCompletion(session.id);
       expect(result.exitCode).toBe(42);
+      expect(result.status).toBe("failed");
+    });
+
+    it("resolves immediately when process has already exited (race case)", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMock(closeHandlerRef);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      // Simulate process exit before waitForCompletion is called
+      closeHandlerRef.value?.(0);
+
+      const result = await adapter.waitForCompletion(session.id);
+      expect(result.exitCode).toBe(0);
+      expect(result.status).toBe("completed");
+    });
+
+    it("resolves via resolver when process exits after waitForCompletion is called", async () => {
+      const skillFile = join(tmpDir, "skill.md");
+      const taskContextFile = join(tmpDir, "task-context.json");
+      const logFile = join(tmpDir, "run.log");
+      await writeFile(skillFile, "# Skill");
+      await writeFile(taskContextFile, "{}");
+      await writeFile(logFile, "");
+
+      const closeHandlerRef: { value?: (code: number | null) => void } = {};
+      makeSpawnMock(closeHandlerRef);
+
+      const session = await adapter.spawn({
+        skill: skillFile,
+        taskContextFile,
+        repoPath: tmpDir,
+        taskId: "42",
+        logFile,
+      });
+
+      // Start waiting, then fire close handler (no polling needed)
+      const resultPromise = adapter.waitForCompletion(session.id);
+      closeHandlerRef.value?.(1);
+
+      const result = await resultPromise;
+      expect(result.exitCode).toBe(1);
       expect(result.status).toBe("failed");
     });
   });
