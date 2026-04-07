@@ -1,4 +1,4 @@
-import { spawn } from "child_process";
+import { spawn, type ChildProcess } from "child_process";
 import { readFile, open } from "fs/promises";
 import { randomUUID } from "crypto";
 import { Transform } from "stream";
@@ -14,6 +14,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
   private sessions: Map<string, Session> = new Map();
   private exitCodes: Map<string, number> = new Map();
   private completionResolvers: Map<string, (result: SessionResult) => void> = new Map();
+  private children: Map<string, ChildProcess> = new Map();
 
   async spawn(options: SpawnOptions): Promise<Session> {
     const { skill, taskContextFile, repoPath, taskId, logFile } = options;
@@ -77,8 +78,20 @@ export class ClaudeCodeAdapter implements AgentAdapter {
       startedAt: new Date(),
     };
 
+    // Store child reference so kill() can SIGTERM it later
+    this.children.set(session.id, child);
+
     // Track exit code so getStatus can report failed vs completed accurately
     child.on("close", (code) => {
+      this.children.delete(session.id);
+      // If kill() already set exitCode to -1 (timed-out sentinel) and deleted
+      // the resolver, this handler is a no-op — do not overwrite the sentinel
+      // and do not attempt to call a resolver that no longer exists.
+      if (this.exitCodes.get(session.id) === -1) {
+        tail.kill();
+        logFd.close();
+        return;
+      }
       const exitCode = code ?? 1;
       this.exitCodes.set(session.id, exitCode);
       tail.kill();
@@ -88,7 +101,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
       if (resolver) {
         this.completionResolvers.delete(session.id);
         resolver({
-          status: exitCode === 0 ? "completed" : "failed",
+          status: exitCode === -1 ? "timed-out" : exitCode === 0 ? "completed" : "failed",
           exitCode,
           duration: Date.now() - session.startedAt.getTime(),
         });
@@ -104,7 +117,9 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     if (!session) return "failed";
 
     if (this.exitCodes.has(sessionId)) {
-      return this.exitCodes.get(sessionId) === 0 ? "completed" : "failed";
+      const exitCode = this.exitCodes.get(sessionId)!;
+      if (exitCode === -1) return "timed-out";
+      return exitCode === 0 ? "completed" : "failed";
     }
 
     try {
@@ -129,7 +144,7 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     if (this.exitCodes.has(sessionId)) {
       const exitCode = this.exitCodes.get(sessionId)!;
       return {
-        status: exitCode === 0 ? "completed" : "failed",
+        status: exitCode === -1 ? "timed-out" : exitCode === 0 ? "completed" : "failed",
         exitCode,
         duration: Date.now() - session.startedAt.getTime(),
       };
@@ -146,4 +161,35 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     return readFile(session.logFile, "utf-8");
   }
 
+  async kill(sessionId: string): Promise<void> {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    // Set the timed-out sentinel BEFORE sending SIGTERM so that getStatus()
+    // returns "timed-out" on the very next poll tick, even if the process has
+    // not yet exited.
+    this.exitCodes.set(sessionId, -1);
+
+    // Resolve the waiting promise (if any) immediately with a timed-out result
+    // so the daemon's waitForCompletion() call unblocks without waiting for the
+    // close event.  We delete the resolver first so the close handler sees it
+    // is gone and skips its own resolver call (preventing any double-resolve).
+    const resolver = this.completionResolvers.get(sessionId);
+    if (resolver) {
+      this.completionResolvers.delete(sessionId);
+      resolver({
+        status: "timed-out",
+        exitCode: -1,
+        duration: Date.now() - session.startedAt.getTime(),
+      });
+    }
+
+    // Send SIGTERM only — MVP choice. SIGKILL after a grace period could be
+    // added later if the child process is known to ignore SIGTERM, but that
+    // added complexity is out of scope for now.
+    const child = this.children.get(sessionId);
+    if (child) {
+      child.kill("SIGTERM");
+    }
+  }
 }

@@ -155,62 +155,84 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
         log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
       }
 
+      // Teardown helper shared by timeout and normal completion paths
+      const teardownSession = async (taskId: string, session: { id: string; pid: number; logFile: string; startedAt: Date }, status: string) => {
+        const duration = Math.round((Date.now() - session.startedAt.getTime()) / 1000);
+        // Kill the tail process for this task
+        const tailProc = tailProcesses.get(taskId);
+        if (tailProc) {
+          tailProc.kill();
+          tailProcesses.delete(taskId);
+        }
+        // Scan run.log for token summary
+        const tokens = await extractTokensFromLog(session.logFile);
+        if (tokens !== null) {
+          console.log(`[task-${taskId}] [done] tokens: ${tokens}`);
+        }
+        // Write task-log.jsonl row
+        try {
+          const eventsFile = stateManager.eventsPath(taskId);
+          const estimateEvent = await readLastEstimateEvent(eventsFile);
+          const taskContext = await stateManager.readTaskContext(taskId);
+          const taskLogRow = {
+            task_id: taskId,
+            title: taskContext.title,
+            complexity_score: estimateEvent ? estimateEvent.score : null,
+            estimated_seconds: estimateEvent ? estimateEvent.estimated_seconds : null,
+            actual_seconds: duration,
+            completed_at: new Date().toISOString(),
+            status,
+          };
+          await appendFile(taskLogPath, JSON.stringify(taskLogRow) + "\n", "utf-8");
+        } catch (taskLogErr) {
+          log(`Warning: failed to write task-log.jsonl: ${taskLogErr instanceof Error ? taskLogErr.message : String(taskLogErr)}`);
+        }
+        log(`--- agent output end ---`);
+        log(`Task ${taskId} ${status} in ${duration}s`);
+        if (status === "failed" || status === "timed-out") {
+          log(`  logs: ${session.logFile}`);
+        }
+        try {
+          await board.updateTask(taskId, {
+            status: status === "completed" ? "done" : "failed",
+            comment: `oflow: task ${status} in ${duration}s`,
+          });
+        } finally {
+          scheduler.removeSession(taskId);
+          try {
+            await writeSessionsJson(repoPath, scheduler);
+          } catch (sessErr) {
+            log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
+          }
+        }
+      };
+
       // Check completed sessions and emit active heartbeats
       for (const [taskId, session] of scheduler.activeSessions()) {
         const status = await agent.getStatus(session.id);
-        if (status !== "running") {
-          const duration = Math.round((Date.now() - session.startedAt.getTime()) / 1000);
-          // Kill the tail process for this task
-          const tailProc = tailProcesses.get(taskId);
-          if (tailProc) {
-            tailProc.kill();
-            tailProcesses.delete(taskId);
-          }
-          // Scan run.log for token summary
-          const tokens = await extractTokensFromLog(session.logFile);
-          if (tokens !== null) {
-            console.log(`[task-${taskId}] [done] tokens: ${tokens}`);
-          }
-          // Write task-log.jsonl row
+        const elapsed = Date.now() - session.startedAt.getTime();
+
+        if (status === "running" && elapsed > config.stepTimeoutSeconds * 1000) {
+          // Step has exceeded the timeout — kill and tear down
+          const elapsedSecs = Math.round(elapsed / 1000);
+          log(`[task-${taskId}] [timeout] step timed out after ${elapsedSecs}s`);
           try {
-            const eventsFile = stateManager.eventsPath(taskId);
-            const estimateEvent = await readLastEstimateEvent(eventsFile);
-            const taskContext = await stateManager.readTaskContext(taskId);
-            const taskLogRow = {
-              task_id: taskId,
-              title: taskContext.title,
-              complexity_score: estimateEvent ? estimateEvent.score : null,
-              estimated_seconds: estimateEvent ? estimateEvent.estimated_seconds : null,
-              actual_seconds: duration,
-              completed_at: new Date().toISOString(),
-              status,
-            };
-            await appendFile(taskLogPath, JSON.stringify(taskLogRow) + "\n", "utf-8");
-          } catch (taskLogErr) {
-            log(`Warning: failed to write task-log.jsonl: ${taskLogErr instanceof Error ? taskLogErr.message : String(taskLogErr)}`);
-          }
-          log(`--- agent output end ---`);
-          log(`Task ${taskId} ${status} in ${duration}s`);
-          if (status === "failed") {
-            log(`  logs: ${session.logFile}`);
+            await agent.kill(session.id);
+          } catch (killErr) {
+            log(`Warning: failed to kill agent session ${session.id}: ${killErr instanceof Error ? killErr.message : String(killErr)}`);
           }
           try {
-            await board.updateTask(taskId, {
-              status: status === "completed" ? "done" : "failed",
-              comment: `oflow: task ${status} in ${duration}s`,
-            });
-          } finally {
-            scheduler.removeSession(taskId);
-            try {
-              await writeSessionsJson(repoPath, scheduler);
-            } catch (sessErr) {
-              log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
-            }
+            await stateManager.appendEvent(taskId, { type: "timeout", taskId, elapsed: elapsedSecs, ts: new Date().toISOString() });
+          } catch (evtErr) {
+            log(`Warning: failed to append timeout event: ${evtErr instanceof Error ? evtErr.message : String(evtErr)}`);
           }
+          await teardownSession(taskId, session, "timed-out");
+        } else if (status !== "running") {
+          await teardownSession(taskId, session, status);
         } else {
           // Emit active heartbeat for running sessions
-          const elapsed = Math.round((Date.now() - session.startedAt.getTime()) / 1000);
-          console.log(`[task-${taskId}] [active] ${elapsed}s elapsed`);
+          const elapsedSecs = Math.round(elapsed / 1000);
+          console.log(`[task-${taskId}] [active] ${elapsedSecs}s elapsed`);
         }
       }
     } catch (err) {

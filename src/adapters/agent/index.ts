@@ -1,4 +1,4 @@
-export type SessionStatus = "running" | "completed" | "failed";
+export type SessionStatus = "running" | "completed" | "failed" | "timed-out";
 
 export interface Session {
   id: string;
@@ -9,7 +9,7 @@ export interface Session {
 }
 
 export interface SessionResult {
-  status: "completed" | "failed";
+  status: "completed" | "failed" | "timed-out";
   exitCode: number;
   duration: number;
 }
@@ -27,4 +27,5 @@ export interface AgentAdapter {
   getStatus(sessionId: string): Promise<SessionStatus>;
   waitForCompletion(sessionId: string): Promise<SessionResult>;
   getLogs(sessionId: string): Promise<string>;
+  kill(sessionId: string): Promise<void>;
 }

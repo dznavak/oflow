@@ -74,6 +74,45 @@ describe("loadConfig", () => {
     expect(config.pollIntervalSeconds).toBe(30);
   });
 
+  it("defaults stepTimeoutSeconds to 900 for github board", () => {
+    process.env.OFLOW_BOARD = "github";
+    process.env.OFLOW_GITHUB_TOKEN = "ghp_test";
+    process.env.OFLOW_GITHUB_REPO = "owner/repo";
+
+    const config = loadConfig();
+
+    expect(config.stepTimeoutSeconds).toBe(900);
+  });
+
+  it("respects overridden OFLOW_STEP_TIMEOUT_SECONDS for github board", () => {
+    process.env.OFLOW_BOARD = "github";
+    process.env.OFLOW_GITHUB_TOKEN = "ghp_test";
+    process.env.OFLOW_GITHUB_REPO = "owner/repo";
+    process.env.OFLOW_STEP_TIMEOUT_SECONDS = "300";
+
+    const config = loadConfig();
+
+    expect(config.stepTimeoutSeconds).toBe(300);
+  });
+
+  it("defaults stepTimeoutSeconds to 900 for gitlab board", () => {
+    process.env.OFLOW_BOARD = "gitlab";
+    process.env.OFLOW_GITLAB_TOKEN = "glpat_test";
+    process.env.OFLOW_GITLAB_PROJECT_ID = "owner/repo";
+
+    const config = loadConfig();
+
+    expect(config.stepTimeoutSeconds).toBe(900);
+  });
+
+  it("defaults stepTimeoutSeconds to 900 for other board", () => {
+    process.env.OFLOW_BOARD = "other";
+
+    const config = loadConfig();
+
+    expect(config.stepTimeoutSeconds).toBe(900);
+  });
+
   it("throws if OFLOW_GITLAB_TOKEN is missing when board=gitlab", () => {
     process.env.OFLOW_BOARD = "gitlab";
     process.env.OFLOW_GITLAB_PROJECT_ID = "owner/repo";
