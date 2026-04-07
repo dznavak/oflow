@@ -32,19 +32,6 @@ function makeMockScheduler(hasSlot = true) {
   };
 }
 
-const baseConfig = {
-  board: "github",
-  githubToken: "ghp_test",
-  githubRepo: "owner/repo",
-  taskLabel: "oflow-ready",
-  taskInProgressLabel: "oflow-in-progress",
-  taskDoneLabel: "oflow-done",
-  agent: "claude-code",
-  agentModel: "claude-opus-4-6",
-  maxConcurrentTasks: 1,
-  defaultWorkflow: "dev-workflow",
-  pollIntervalSeconds: 60,
-};
 
 describe("poll", () => {
   let board: ReturnType<typeof makeMockAdapter>;
@@ -62,7 +49,7 @@ describe("poll", () => {
   it("calls board.listAvailableTasks when slot is available", async () => {
     board.listAvailableTasks.mockResolvedValue([]);
 
-    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo");
+    await poll(board, scheduler, agent, stateManager, "/repo");
 
     expect(board.listAvailableTasks).toHaveBeenCalled();
   });
@@ -70,7 +57,7 @@ describe("poll", () => {
   it("does not call board.listAvailableTasks when no slot available", async () => {
     const fullScheduler = makeMockScheduler(false);
 
-    await poll(board, fullScheduler, agent, stateManager, baseConfig, "/repo");
+    await poll(board, fullScheduler, agent, stateManager, "/repo");
 
     expect(board.listAvailableTasks).not.toHaveBeenCalled();
   });
@@ -81,7 +68,7 @@ describe("poll", () => {
     board.claimTask.mockResolvedValue(task);
     agent.spawn.mockResolvedValue(makeSession());
 
-    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo");
+    await poll(board, scheduler, agent, stateManager, "/repo");
 
     expect(board.claimTask).toHaveBeenCalledWith("42");
     expect(agent.spawn).toHaveBeenCalled();
@@ -91,7 +78,7 @@ describe("poll", () => {
   it("does not spawn when no tasks available", async () => {
     board.listAvailableTasks.mockResolvedValue([]);
 
-    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo");
+    await poll(board, scheduler, agent, stateManager, "/repo");
 
     expect(agent.spawn).not.toHaveBeenCalled();
     expect(board.claimTask).not.toHaveBeenCalled();
@@ -100,7 +87,7 @@ describe("poll", () => {
   it("calls listAvailableTasks with label when label is provided", async () => {
     board.listAvailableTasks.mockResolvedValue([]);
 
-    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo", "my-label");
+    await poll(board, scheduler, agent, stateManager, "/repo", "my-label");
 
     expect(board.listAvailableTasks).toHaveBeenCalledWith("my-label");
   });
@@ -108,7 +95,7 @@ describe("poll", () => {
   it("calls listAvailableTasks without label when label is not provided", async () => {
     board.listAvailableTasks.mockResolvedValue([]);
 
-    await poll(board, scheduler, agent, stateManager, baseConfig, "/repo");
+    await poll(board, scheduler, agent, stateManager, "/repo");
 
     expect(board.listAvailableTasks).toHaveBeenCalledWith(undefined);
   });

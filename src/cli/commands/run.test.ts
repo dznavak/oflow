@@ -100,7 +100,6 @@ describe("runDaemon", () => {
       expect.anything(),
       expect.anything(),
       expect.anything(),
-      expect.anything(),
       "/repo",
       undefined
     );
@@ -118,7 +117,6 @@ describe("runDaemon", () => {
     await runDaemon("/repo", "my-label");
 
     expect(pollSpy).toHaveBeenCalledWith(
-      expect.anything(),
       expect.anything(),
       expect.anything(),
       expect.anything(),
