@@ -1,7 +1,6 @@
 import { join } from "path";
 import type { BoardAdapter } from "../adapters/board/index.js";
 import type { AgentAdapter } from "../adapters/agent/index.js";
-import type { Config } from "../config/types.js";
 import type { Scheduler } from "./scheduler.js";
 import type { StateManager } from "../state/manager.js";
 
@@ -17,7 +16,6 @@ export async function poll(
   scheduler: Scheduler | SchedulerLike,
   agent: AgentAdapter,
   stateManager: StateManager | { initRun: (id: string) => Promise<string>; writeTaskContext: (id: string, ctx: object) => Promise<void>; getRunDir: (id: string) => string },
-  config: Config,
   repoPath: string,
   label?: string
 ): Promise<void> {
