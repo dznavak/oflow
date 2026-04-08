@@ -9,7 +9,6 @@ export interface Config {
   taskInProgressLabel: string;
   taskDoneLabel: string;
   agent: string;
-  agentModel: string;
   maxConcurrentTasks: number;
   defaultWorkflow: string;
   pollIntervalSeconds: number;

@@ -7,7 +7,6 @@ const baseSchema = z.object({
   OFLOW_TASK_IN_PROGRESS_LABEL: z.string().default("oflow-in-progress"),
   OFLOW_TASK_DONE_LABEL: z.string().default("oflow-done"),
   OFLOW_AGENT: z.string().default("claude-code"),
-  OFLOW_AGENT_MODEL: z.string().default("claude-opus-4-6"),
   OFLOW_MAX_CONCURRENT_TASKS: z
     .string()
     .default("1")
@@ -68,7 +67,6 @@ export function loadConfig(): Config {
       taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
       taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
       agent: base.OFLOW_AGENT,
-      agentModel: base.OFLOW_AGENT_MODEL,
       maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
       defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
       pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
@@ -93,7 +91,6 @@ export function loadConfig(): Config {
       taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
       taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
       agent: base.OFLOW_AGENT,
-      agentModel: base.OFLOW_AGENT_MODEL,
       maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
       defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
       pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
@@ -107,7 +104,6 @@ export function loadConfig(): Config {
     taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
     taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
     agent: base.OFLOW_AGENT,
-    agentModel: base.OFLOW_AGENT_MODEL,
     maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
     defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
     pollIntervalSeconds: base.OFLOW_POLL_INTERVAL_SECONDS,
