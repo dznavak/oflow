@@ -1,8 +1,7 @@
 import { readFile, writeFile, access, appendFile } from "fs/promises";
 import { join } from "path";
-import { loadConfig } from "../../config/loader.js";
-import { GitHubBoardAdapter } from "../../adapters/board/github.js";
-import { GitLabBoardAdapter } from "../../adapters/board/gitlab.js";
+import { loadConfig, loadJiraToken } from "../../config/loader.js";
+import { createBoardAdapter } from "../../adapters/board/factory.js";
 import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 import { OpencodeAdapter } from "../../adapters/agent/opencode.js";
 import { StateManager } from "../../state/manager.js";
@@ -86,10 +85,18 @@ async function writeSessionsJson(repoPath: string, scheduler: Scheduler): Promis
 }
 
 export async function runDaemon(repoPath: string, label?: string): Promise<void> {
+  // Resolve Jira token from keychain before loadConfig() so that the config
+  // validator sees OFLOW_JIRA_TOKEN as set. Intentionally reads OFLOW_BOARD
+  // from env directly (pre-validation) to avoid a circular dependency.
+  if (process.env.OFLOW_BOARD === "jira" && !process.env.OFLOW_JIRA_TOKEN) {
+    const token = await loadJiraToken();
+    if (token) {
+      process.env.OFLOW_JIRA_TOKEN = token;
+    }
+  }
+
   const config = loadConfig();
-  const board = config.board === "gitlab"
-    ? new GitLabBoardAdapter(config)
-    : new GitHubBoardAdapter(config);
+  const board = createBoardAdapter(config);
   const stateManager = new StateManager(repoPath);
   const scheduler = new Scheduler(config.maxConcurrentTasks);
   const tailProcesses = new Map<string, ChildProcess>();
@@ -120,7 +127,12 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
   }
 
   log(`oflow daemon started`);
-  log(`  board:  ${config.board} / ${config.githubRepo}`);
+  const boardTarget = config.board === "jira"
+    ? `${config.jiraProjectKey} @ ${config.jiraUrl}`
+    : config.board === "gitlab"
+      ? config.gitlabProjectId
+      : config.githubRepo;
+  log(`  board:  ${config.board} / ${boardTarget}`);
   log(`  agent:  ${config.agent}`);
   log(`  label:  ${label ?? config.taskLabel}`);
   log(`  slots:  ${config.maxConcurrentTasks}`);
