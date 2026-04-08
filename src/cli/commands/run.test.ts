@@ -1056,7 +1056,7 @@ describe("runDaemon", () => {
       });
 
       let capturedToken: string | undefined;
-      const origLoadConfig = (await import("../../config/loader.js")).loadConfig;
+      const _origLoadConfig = (await import("../../config/loader.js")).loadConfig;
       // Intercept env at the point loadConfig is called
       pollSpy.mockImplementation(async () => {
         capturedToken = process.env.OFLOW_JIRA_TOKEN;
