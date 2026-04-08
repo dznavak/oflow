@@ -50,7 +50,6 @@ Then open `.env` and set at minimum `OFLOW_GITHUB_TOKEN` and `OFLOW_GITHUB_REPO`
 | `OFLOW_TASK_IN_PROGRESS_LABEL` | No | `oflow-in-progress` | Label applied to an issue while a session is running. |
 | `OFLOW_TASK_DONE_LABEL` | No | `oflow-done` | Label applied to an issue after the session completes. |
 | `OFLOW_AGENT` | No | `claude-code` | Agent adapter to use for executing tasks. |
-| `OFLOW_AGENT_MODEL` | No | `claude-opus-4-6` | Model passed to the agent when spawning a session. |
 | `OFLOW_MAX_CONCURRENT_TASKS` | No | `1` | Maximum number of tasks that can run in parallel. |
 | `OFLOW_DEFAULT_WORKFLOW` | No | `dev-workflow` | Skill workflow name invoked at the start of each Claude Code session. |
 | `OFLOW_POLL_INTERVAL_SECONDS` | No | `60` | How often (in seconds) the daemon polls GitHub for new ready tasks. |
@@ -63,6 +62,11 @@ oflow supports two agent adapters, selected via the `OFLOW_AGENT` environment va
 - **`opencode`** — spawns an `opencode` session for each task. Because opencode does not support native subagent dispatch, all skill steps execute sequentially within a single session context. This means the entire dev-workflow runs in one continuous conversation rather than per-step subagents.
 
 Set `OFLOW_AGENT=opencode` in your `.env` file to use the opencode adapter.
+
+Model selection is not managed by oflow — it is delegated to each agent's own configuration:
+
+- **`claude-code`**: the model is controlled via Claude Code's own configuration. Use `claude model set <model>` or set the `model` field in `~/.claude/settings.json`.
+- **`opencode`**: model selection is opencode's own concern, configured in opencode's settings.
 
 ## Usage
 
