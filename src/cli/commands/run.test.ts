@@ -6,6 +6,7 @@ import { GitHubBoardAdapter } from "../../adapters/board/github.js";
 import { GitLabBoardAdapter } from "../../adapters/board/gitlab.js";
 import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 import { StateManager } from "../../state/manager.js";
+import { loadConfig } from "../../config/loader.js";
 
 
 const mockTailProcess = {
@@ -14,14 +15,21 @@ const mockTailProcess = {
   pid: 999,
 };
 
+const mockLoadJiraToken = vi.fn().mockResolvedValue(undefined);
+
 vi.mock("../../config/loader.js", () => ({
-  loadConfig: () => ({
+  loadConfig: vi.fn(() => ({
     taskLabel: "oflow-ready",
+    taskInProgressLabel: "oflow-in-progress",
+    taskDoneLabel: "oflow-done",
     pollIntervalSeconds: 30,
     maxConcurrentTasks: 1,
     agent: "claude-code",
     stepTimeoutSeconds: 900,
-  }),
+    defaultWorkflow: "dev-workflow",
+    board: "github",
+  })),
+  loadJiraToken: () => mockLoadJiraToken(),
 }));
 
 vi.mock("../../adapters/board/github.js", () => ({
@@ -925,5 +933,207 @@ describe("runDaemon", () => {
     expect(doneLogs[0]).toBe("[task-42] [done] tokens: 12345");
 
     consoleSpy.mockRestore();
+  });
+
+  describe("board target log line", () => {
+    it("logs githubRepo as board target for github board", async () => {
+      vi.mocked(loadConfig).mockReturnValueOnce({
+        board: "github",
+        githubRepo: "owner/my-repo",
+        taskLabel: "oflow-ready",
+        taskInProgressLabel: "oflow-in-progress",
+        taskDoneLabel: "oflow-done",
+        pollIntervalSeconds: 30,
+        maxConcurrentTasks: 1,
+        agent: "claude-code",
+        stepTimeoutSeconds: 900,
+        defaultWorkflow: "dev-workflow",
+      });
+
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      pollSpy.mockImplementation(async () => {
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      const boardLog = consoleSpy.mock.calls
+        .map((args) => args[0] as string)
+        .find((msg) => msg.includes("board:"));
+
+      consoleSpy.mockRestore();
+
+      expect(boardLog).toContain("github");
+      expect(boardLog).toContain("owner/my-repo");
+    });
+
+    it("logs gitlabProjectId as board target for gitlab board", async () => {
+      vi.mocked(loadConfig).mockReturnValueOnce({
+        board: "gitlab",
+        gitlabProjectId: "mygroup/my-project",
+        gitlabToken: "token",
+        taskLabel: "oflow-ready",
+        taskInProgressLabel: "oflow-in-progress",
+        taskDoneLabel: "oflow-done",
+        pollIntervalSeconds: 30,
+        maxConcurrentTasks: 1,
+        agent: "claude-code",
+        stepTimeoutSeconds: 900,
+        defaultWorkflow: "dev-workflow",
+      });
+
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      pollSpy.mockImplementation(async () => {
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      const boardLog = consoleSpy.mock.calls
+        .map((args) => args[0] as string)
+        .find((msg) => msg.includes("board:"));
+
+      consoleSpy.mockRestore();
+
+      expect(boardLog).toContain("gitlab");
+      expect(boardLog).toContain("mygroup/my-project");
+    });
+
+    it("logs jiraProjectKey and jiraUrl as board target for jira board", async () => {
+      vi.mocked(loadConfig).mockReturnValueOnce({
+        board: "jira",
+        jiraProjectKey: "PROJ",
+        jiraUrl: "https://my.atlassian.net",
+        jiraEmail: "user@example.com",
+        jiraToken: "token",
+        taskLabel: "oflow-ready",
+        taskInProgressLabel: "oflow-in-progress",
+        taskDoneLabel: "oflow-done",
+        pollIntervalSeconds: 30,
+        maxConcurrentTasks: 1,
+        agent: "claude-code",
+        stepTimeoutSeconds: 900,
+        defaultWorkflow: "dev-workflow",
+      });
+
+      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+
+      pollSpy.mockImplementation(async () => {
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      const boardLog = consoleSpy.mock.calls
+        .map((args) => args[0] as string)
+        .find((msg) => msg.includes("board:"));
+
+      consoleSpy.mockRestore();
+
+      expect(boardLog).toContain("jira");
+      expect(boardLog).toContain("PROJ");
+      expect(boardLog).toContain("https://my.atlassian.net");
+    });
+  });
+
+  describe("loadJiraToken keychain wiring", () => {
+    it("calls loadJiraToken and sets OFLOW_JIRA_TOKEN when OFLOW_BOARD=jira and token not already set", async () => {
+      const origBoard = process.env.OFLOW_BOARD;
+      const origToken = process.env.OFLOW_JIRA_TOKEN;
+      process.env.OFLOW_BOARD = "jira";
+      delete process.env.OFLOW_JIRA_TOKEN;
+
+      mockLoadJiraToken.mockResolvedValueOnce("keychain-token");
+
+      let calls = 0;
+      pollSpy.mockImplementation(async () => {
+        calls++;
+        if (calls >= 1) {
+          process.emit("SIGINT" as any);
+        }
+      });
+
+      let capturedToken: string | undefined;
+      const _origLoadConfig = (await import("../../config/loader.js")).loadConfig;
+      // Intercept env at the point loadConfig is called
+      pollSpy.mockImplementation(async () => {
+        capturedToken = process.env.OFLOW_JIRA_TOKEN;
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      expect(mockLoadJiraToken).toHaveBeenCalled();
+      expect(capturedToken).toBe("keychain-token");
+
+      // Restore env
+      if (origBoard === undefined) delete process.env.OFLOW_BOARD;
+      else process.env.OFLOW_BOARD = origBoard;
+      if (origToken === undefined) delete process.env.OFLOW_JIRA_TOKEN;
+      else process.env.OFLOW_JIRA_TOKEN = origToken;
+    });
+
+    it("does not overwrite OFLOW_JIRA_TOKEN when already set in env", async () => {
+      const origBoard = process.env.OFLOW_BOARD;
+      const origToken = process.env.OFLOW_JIRA_TOKEN;
+      process.env.OFLOW_BOARD = "jira";
+      process.env.OFLOW_JIRA_TOKEN = "existing-token";
+
+      mockLoadJiraToken.mockResolvedValueOnce("keychain-token");
+
+      pollSpy.mockImplementation(async () => {
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      expect(process.env.OFLOW_JIRA_TOKEN).toBe("existing-token");
+
+      // Restore env
+      if (origBoard === undefined) delete process.env.OFLOW_BOARD;
+      else process.env.OFLOW_BOARD = origBoard;
+      if (origToken === undefined) delete process.env.OFLOW_JIRA_TOKEN;
+      else process.env.OFLOW_JIRA_TOKEN = origToken;
+    });
+
+    it("does not call loadJiraToken when OFLOW_BOARD is 'github'", async () => {
+      const origBoard = process.env.OFLOW_BOARD;
+      process.env.OFLOW_BOARD = "github";
+
+      mockLoadJiraToken.mockClear();
+
+      pollSpy.mockImplementation(async () => {
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      expect(mockLoadJiraToken).not.toHaveBeenCalled();
+
+      // Restore env
+      if (origBoard === undefined) delete process.env.OFLOW_BOARD;
+      else process.env.OFLOW_BOARD = origBoard;
+    });
+
+    it("does not call loadJiraToken when OFLOW_BOARD is 'gitlab'", async () => {
+      const origBoard = process.env.OFLOW_BOARD;
+      process.env.OFLOW_BOARD = "gitlab";
+
+      mockLoadJiraToken.mockClear();
+
+      pollSpy.mockImplementation(async () => {
+        process.emit("SIGINT" as any);
+      });
+
+      await runDaemon("/repo");
+
+      expect(mockLoadJiraToken).not.toHaveBeenCalled();
+
+      // Restore env
+      if (origBoard === undefined) delete process.env.OFLOW_BOARD;
+      else process.env.OFLOW_BOARD = origBoard;
+    });
   });
 });

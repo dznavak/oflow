@@ -41,18 +41,46 @@ Then open `.env` and set at minimum `OFLOW_GITHUB_TOKEN` and `OFLOW_GITHUB_REPO`
 
 ### Environment variables
 
+#### General
+
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `OFLOW_BOARD` | Yes | — | Board adapter to use. Currently only `github` is supported. |
-| `OFLOW_GITHUB_TOKEN` | Yes (when `OFLOW_BOARD=github`) | — | GitHub personal access token with `repo` scope. |
-| `OFLOW_GITHUB_REPO` | Yes (when `OFLOW_BOARD=github`) | — | Target repository in `owner/repo` format (e.g. `acme/my-app`). |
-| `OFLOW_TASK_LABEL` | No | `oflow-ready` | GitHub label that marks an issue as ready for oflow to pick up. |
-| `OFLOW_TASK_IN_PROGRESS_LABEL` | No | `oflow-in-progress` | Label applied to an issue while a session is running. |
-| `OFLOW_TASK_DONE_LABEL` | No | `oflow-done` | Label applied to an issue after the session completes. |
+| `OFLOW_BOARD` | No | `github` | Board adapter to use. Supported values: `github`, `gitlab`, `jira`. Defaults to `github` when not set. |
 | `OFLOW_AGENT` | No | `claude-code` | Agent adapter to use for executing tasks. |
 | `OFLOW_MAX_CONCURRENT_TASKS` | No | `1` | Maximum number of tasks that can run in parallel. |
 | `OFLOW_DEFAULT_WORKFLOW` | No | `dev-workflow` | Skill workflow name invoked at the start of each Claude Code session. |
-| `OFLOW_POLL_INTERVAL_SECONDS` | No | `60` | How often (in seconds) the daemon polls GitHub for new ready tasks. |
+| `OFLOW_POLL_INTERVAL_SECONDS` | No | `60` | How often (in seconds) the daemon polls the board for new ready tasks. |
+
+#### GitHub (`OFLOW_BOARD=github`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `OFLOW_GITHUB_TOKEN` | Yes | — | GitHub personal access token with `repo` scope. |
+| `OFLOW_GITHUB_REPO` | Yes | — | Target repository in `owner/repo` format (e.g. `acme/my-app`). |
+| `OFLOW_TASK_LABEL` | No | `oflow-ready` | GitHub label that marks an issue as ready for oflow to pick up. |
+| `OFLOW_TASK_IN_PROGRESS_LABEL` | No | `oflow-in-progress` | Label applied to an issue while a session is running. |
+| `OFLOW_TASK_DONE_LABEL` | No | `oflow-done` | Label applied to an issue after the session completes. |
+
+#### GitLab (`OFLOW_BOARD=gitlab`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `OFLOW_GITLAB_TOKEN` | Yes | — | GitLab personal access token with `api` scope. |
+| `OFLOW_GITLAB_PROJECT_ID` | Yes | — | Target project in `owner/repo` format (e.g. `acme/my-app`). |
+| `OFLOW_GITLAB_URL` | No | `https://gitlab.com/api/v4` | GitLab API base URL. Override for self-hosted GitLab instances. |
+
+#### Jira (`OFLOW_BOARD=jira`)
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `OFLOW_JIRA_URL` | Yes | — | Jira instance base URL (e.g. `https://mycompany.atlassian.net`). |
+| `OFLOW_JIRA_EMAIL` | Yes | — | Atlassian account email used to authenticate API requests. |
+| `OFLOW_JIRA_TOKEN` | Yes | — | Jira API token. See [Jira Setup](#jira-setup) below. |
+| `OFLOW_JIRA_PROJECT_KEY` | Yes | — | Jira project key (e.g. `DEV`). |
+| `OFLOW_JIRA_BOARD_ID` | No | — | Jira board ID. Accepted in config but reserved for future sprint-based filtering — currently has no effect. |
+| `OFLOW_JIRA_READY_STATUS` | No | `To Do` | Issue status name that marks a task as ready for oflow to pick up. |
+| `OFLOW_JIRA_IN_PROGRESS_STATUS` | No | `In Progress` | Issue status applied while a session is running. |
+| `OFLOW_JIRA_DONE_STATUS` | No | `Done` | Issue status applied after the session completes. |
 
 ### Agents
 
@@ -67,6 +95,33 @@ Model selection is not managed by oflow — it is delegated to each agent's own 
 
 - **`claude-code`**: the model is controlled via Claude Code's own configuration. Use `claude model set <model>` or set the `model` field in `~/.claude/settings.json`.
 - **`opencode`**: model selection is opencode's own concern, configured in opencode's settings.
+
+### Jira Setup
+
+To connect oflow to Jira, you need a Jira API token:
+
+1. Go to your [Atlassian account security page](https://id.atlassian.com/manage-profile/security/api-tokens) and create a new API token.
+2. Store the token in your environment. You can either:
+
+   **Option A — environment variable** (add to your `.env` file):
+   ```bash
+   OFLOW_JIRA_TOKEN=<your-api-token>
+   ```
+
+   **Option B — macOS keychain** (oflow will read it automatically at startup):
+   ```bash
+   security add-generic-password -s oflow-jira -a <your-atlassian-email> -w <your-api-token>
+   ```
+
+3. Set the remaining required Jira variables in your `.env`:
+   ```bash
+   OFLOW_BOARD=jira
+   OFLOW_JIRA_URL=https://mycompany.atlassian.net
+   OFLOW_JIRA_EMAIL=you@example.com
+   OFLOW_JIRA_PROJECT_KEY=DEV
+   ```
+
+Note: `OFLOW_JIRA_BOARD_ID` is accepted in config but is reserved for future sprint-based filtering and currently has no effect.
 
 ## Usage
 
