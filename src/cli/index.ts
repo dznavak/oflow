@@ -170,4 +170,14 @@ program
     await showStatus(resolve("."));
   });
 
+// logs command
+program
+  .command("logs <taskId>")
+  .description("Print or follow the run log for a task")
+  .option("--follow", "tail the log file")
+  .action(async (taskId, opts) => {
+    const { logsCommand } = await import("./commands/logs.js");
+    await logsCommand(taskId, opts);
+  });
+
 program.parse(process.argv);
