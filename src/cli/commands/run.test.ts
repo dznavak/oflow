@@ -7,6 +7,7 @@ import { GitLabBoardAdapter } from "../../adapters/board/gitlab.js";
 import { ClaudeCodeAdapter } from "../../adapters/agent/claude-code.js";
 import { StateManager } from "../../state/manager.js";
 import { loadConfig } from "../../config/loader.js";
+import { logger } from "../../logger.js";
 
 
 const mockTailProcess = {
@@ -82,6 +83,21 @@ vi.mock("fs/promises", () => ({
   appendFile: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("../../logger.js", () => ({
+  logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+  createLogger: vi.fn(() => ({
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  })),
+}));
+
 describe("runDaemon", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let pollSpy: MockInstance<any>;
@@ -90,6 +106,11 @@ describe("runDaemon", () => {
     vi.clearAllMocks();
     mockTailProcess.kill = vi.fn();
     pollSpy = vi.spyOn(poller, "poll").mockResolvedValue(undefined);
+    // Re-apply mock implementations cleared by vi.clearAllMocks()
+    vi.mocked(logger.debug).mockImplementation(() => {});
+    vi.mocked(logger.info).mockImplementation(() => {});
+    vi.mocked(logger.warn).mockImplementation(() => {});
+    vi.mocked(logger.error).mockImplementation(() => {});
   });
 
   it("calls poll without label when no label is provided", async () => {
@@ -319,20 +340,16 @@ describe("runDaemon", () => {
       }),
     }));
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
     pollSpy.mockResolvedValue(undefined);
 
     await runDaemon("/repo");
 
-    const activeLogs = consoleSpy.mock.calls
+    const activeLogs = vi.mocked(logger.info).mock.calls
       .map((args) => args[0] as string)
       .filter((msg) => msg.includes("[active]"));
 
     expect(activeLogs.length).toBeGreaterThan(0);
     expect(activeLogs[0]).toMatch(/\[task-42\] \[active\] \d+s elapsed/);
-
-    consoleSpy.mockRestore();
   });
 
   it("prints formatted step event from events callback", async () => {
@@ -377,8 +394,6 @@ describe("runDaemon", () => {
       getStatus: vi.fn().mockResolvedValue("running"),
     }));
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
     pollSpy.mockResolvedValue(undefined);
 
     await runDaemon("/repo");
@@ -387,14 +402,12 @@ describe("runDaemon", () => {
     expect(capturedCallback).not.toBeNull();
     capturedCallback!(JSON.stringify({ type: "step", step: "exploration", ts: new Date().toISOString() }));
 
-    const stepLogs = consoleSpy.mock.calls
+    const stepLogs = vi.mocked(logger.info).mock.calls
       .map((args) => args[0] as string)
       .filter((msg) => msg.includes("[step]"));
 
     expect(stepLogs.length).toBeGreaterThan(0);
     expect(stepLogs[0]).toBe("[task-42] [step] exploration");
-
-    consoleSpy.mockRestore();
   });
 
   it("prints formatted artifact event from events callback", async () => {
@@ -439,8 +452,6 @@ describe("runDaemon", () => {
       getStatus: vi.fn().mockResolvedValue("running"),
     }));
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
     pollSpy.mockResolvedValue(undefined);
 
     await runDaemon("/repo");
@@ -448,14 +459,12 @@ describe("runDaemon", () => {
     expect(capturedCallback).not.toBeNull();
     capturedCallback!(JSON.stringify({ type: "artifact", name: "plan", path: "plan.md", ts: new Date().toISOString() }));
 
-    const artifactLogs = consoleSpy.mock.calls
+    const artifactLogs = vi.mocked(logger.info).mock.calls
       .map((args) => args[0] as string)
       .filter((msg) => msg.includes("[artifact]"));
 
     expect(artifactLogs.length).toBeGreaterThan(0);
     expect(artifactLogs[0]).toBe("[task-42] [artifact] plan — .oflow/runs/42/plan.md");
-
-    consoleSpy.mockRestore();
   });
 
   it("appends a row to task-log.jsonl on task completion with estimate data", async () => {
@@ -839,17 +848,14 @@ describe("runDaemon", () => {
       getTask: vi.fn(),
     }));
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
     pollSpy.mockResolvedValue(undefined);
 
     await runDaemon("/repo");
 
-    // Check [timeout] log before restore
-    const timeoutLogs = consoleSpy.mock.calls
+    // Check [timeout] log via logger.info mock
+    const timeoutLogs = vi.mocked(logger.info).mock.calls
       .map((args) => args[0] as string)
       .filter((msg) => msg?.includes("[timeout]"));
-
-    consoleSpy.mockRestore();
 
     // [timeout] log message must have been emitted
     expect(timeoutLogs.length).toBeGreaterThan(0);
@@ -919,20 +925,16 @@ describe("runDaemon", () => {
       getTask: vi.fn(),
     }));
 
-    const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
     pollSpy.mockResolvedValue(undefined);
 
     await runDaemon("/repo");
 
-    const doneLogs = consoleSpy.mock.calls
+    const doneLogs = vi.mocked(logger.info).mock.calls
       .map((args) => args[0] as string)
       .filter((msg) => msg.includes("[done]"));
 
     expect(doneLogs.length).toBeGreaterThan(0);
     expect(doneLogs[0]).toBe("[task-42] [done] tokens: 12345");
-
-    consoleSpy.mockRestore();
   });
 
   describe("board target log line", () => {
@@ -950,19 +952,15 @@ describe("runDaemon", () => {
         defaultWorkflow: "dev-workflow",
       });
 
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
       pollSpy.mockImplementation(async () => {
         process.emit("SIGINT" as any);
       });
 
       await runDaemon("/repo");
 
-      const boardLog = consoleSpy.mock.calls
+      const boardLog = vi.mocked(logger.info).mock.calls
         .map((args) => args[0] as string)
         .find((msg) => msg.includes("board:"));
-
-      consoleSpy.mockRestore();
 
       expect(boardLog).toContain("github");
       expect(boardLog).toContain("owner/my-repo");
@@ -983,19 +981,15 @@ describe("runDaemon", () => {
         defaultWorkflow: "dev-workflow",
       });
 
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
       pollSpy.mockImplementation(async () => {
         process.emit("SIGINT" as any);
       });
 
       await runDaemon("/repo");
 
-      const boardLog = consoleSpy.mock.calls
+      const boardLog = vi.mocked(logger.info).mock.calls
         .map((args) => args[0] as string)
         .find((msg) => msg.includes("board:"));
-
-      consoleSpy.mockRestore();
 
       expect(boardLog).toContain("gitlab");
       expect(boardLog).toContain("mygroup/my-project");
@@ -1018,19 +1012,15 @@ describe("runDaemon", () => {
         defaultWorkflow: "dev-workflow",
       });
 
-      const consoleSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-
       pollSpy.mockImplementation(async () => {
         process.emit("SIGINT" as any);
       });
 
       await runDaemon("/repo");
 
-      const boardLog = consoleSpy.mock.calls
+      const boardLog = vi.mocked(logger.info).mock.calls
         .map((args) => args[0] as string)
         .find((msg) => msg.includes("board:"));
-
-      consoleSpy.mockRestore();
 
       expect(boardLog).toContain("jira");
       expect(boardLog).toContain("PROJ");

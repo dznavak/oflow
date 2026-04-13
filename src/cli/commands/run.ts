@@ -7,12 +7,9 @@ import { OpencodeAdapter } from "../../adapters/agent/opencode.js";
 import { StateManager } from "../../state/manager.js";
 import { Scheduler } from "../../daemon/scheduler.js";
 import { poll } from "../../daemon/poller.js";
+import { logger } from "../../logger.js";
 import type { AgentAdapter } from "../../adapters/agent/index.js";
 import type { ChildProcess } from "child_process";
-
-function log(msg: string) {
-  console.log(`[${new Date().toISOString()}] ${msg}`);
-}
 
 function makeEventsCallback(taskId: string): (line: string) => void {
   return (line: string) => {
@@ -24,11 +21,11 @@ function makeEventsCallback(taskId: string): (line: string) => void {
     }
     const type = event.type;
     if (type === "step") {
-      console.log(`[task-${taskId}] [step] ${event.step}`);
+      logger.info(`[task-${taskId}] [step] ${event.step}`);
     } else if (type === "artifact") {
-      console.log(`[task-${taskId}] [artifact] ${event.name} — .oflow/runs/${taskId}/${event.path}`);
+      logger.info(`[task-${taskId}] [artifact] ${event.name} — .oflow/runs/${taskId}/${event.path}`);
     } else if (type === "status" && event.tokens !== undefined) {
-      console.log(`[task-${taskId}] [status] tokens: ${event.tokens}`);
+      logger.info(`[task-${taskId}] [status] tokens: ${event.tokens}`);
     }
   };
 }
@@ -111,7 +108,7 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
   let running = true;
 
   const shutdown = async () => {
-    log("Shutting down: waiting for active sessions to complete...");
+    logger.info("Shutting down: waiting for active sessions to complete...");
     running = false;
   };
 
@@ -126,17 +123,17 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
     await writeFile(taskLogPath, "", "utf-8");
   }
 
-  log(`oflow daemon started`);
+  logger.info(`oflow daemon started`);
   const boardTarget = config.board === "jira"
     ? `${config.jiraProjectKey} @ ${config.jiraUrl}`
     : config.board === "gitlab"
       ? config.gitlabProjectId
       : config.githubRepo;
-  log(`  board:  ${config.board} / ${boardTarget}`);
-  log(`  agent:  ${config.agent}`);
-  log(`  label:  ${label ?? config.taskLabel}`);
-  log(`  slots:  ${config.maxConcurrentTasks}`);
-  log(`  poll:   every ${config.pollIntervalSeconds}s`);
+  logger.info(`  board:  ${config.board} / ${boardTarget}`);
+  logger.info(`  agent:  ${config.agent}`);
+  logger.info(`  label:  ${label ?? config.taskLabel}`);
+  logger.info(`  slots:  ${config.maxConcurrentTasks}`);
+  logger.info(`  poll:   every ${config.pollIntervalSeconds}s`);
 
   while (running) {
     try {
@@ -148,23 +145,23 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
       let newTasksStarted = 0;
       for (const [taskId, session] of scheduler.activeSessions()) {
         if (!idsBefore.has(taskId)) {
-          log(`Task ${taskId} started — pid ${session.pid}`);
-          log(`  log: ${session.logFile}`);
-          log(`--- agent output ---`);
+          logger.info(`Task ${taskId} started — pid ${session.pid}`);
+          logger.info(`  log: ${session.logFile}`);
+          logger.info(`--- agent output ---`);
           const tailProc = stateManager.tailEvents(taskId, makeEventsCallback(taskId));
           tailProcesses.set(taskId, tailProc);
           newTasksStarted++;
         }
       }
       if (newTasksStarted === 0 && activesAfter === 0) {
-        log(`No tasks available. Polling again in ${config.pollIntervalSeconds}s`);
+        logger.info(`No tasks available. Polling again in ${config.pollIntervalSeconds}s`);
       }
 
       // Persist active sessions to disk so the status command can read them
       try {
         await writeSessionsJson(repoPath, scheduler);
       } catch (sessErr) {
-        log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
+        logger.warn(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
       }
 
       // Teardown helper shared by timeout and normal completion paths
@@ -179,7 +176,7 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
         // Scan run.log for token summary
         const tokens = await extractTokensFromLog(session.logFile);
         if (tokens !== null) {
-          console.log(`[task-${taskId}] [done] tokens: ${tokens}`);
+          logger.info(`[task-${taskId}] [done] tokens: ${tokens}`);
         }
         // Write task-log.jsonl row
         try {
@@ -197,12 +194,12 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
           };
           await appendFile(taskLogPath, JSON.stringify(taskLogRow) + "\n", "utf-8");
         } catch (taskLogErr) {
-          log(`Warning: failed to write task-log.jsonl: ${taskLogErr instanceof Error ? taskLogErr.message : String(taskLogErr)}`);
+          logger.warn(`Warning: failed to write task-log.jsonl: ${taskLogErr instanceof Error ? taskLogErr.message : String(taskLogErr)}`);
         }
-        log(`--- agent output end ---`);
-        log(`Task ${taskId} ${status} in ${duration}s`);
+        logger.info(`--- agent output end ---`);
+        logger.info(`Task ${taskId} ${status} in ${duration}s`);
         if (status === "failed" || status === "timed-out") {
-          log(`  logs: ${session.logFile}`);
+          logger.info(`  logs: ${session.logFile}`);
         }
         try {
           await board.updateTask(taskId, {
@@ -214,7 +211,7 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
           try {
             await writeSessionsJson(repoPath, scheduler);
           } catch (sessErr) {
-            log(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
+            logger.warn(`Warning: failed to write sessions.json: ${sessErr instanceof Error ? sessErr.message : String(sessErr)}`);
           }
         }
       };
@@ -227,16 +224,16 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
         if (status === "running" && elapsed > config.stepTimeoutSeconds * 1000) {
           // Step has exceeded the timeout — kill and tear down
           const elapsedSecs = Math.round(elapsed / 1000);
-          log(`[task-${taskId}] [timeout] step timed out after ${elapsedSecs}s`);
+          logger.info(`[task-${taskId}] [timeout] step timed out after ${elapsedSecs}s`);
           try {
             await agent.kill(session.id);
           } catch (killErr) {
-            log(`Warning: failed to kill agent session ${session.id}: ${killErr instanceof Error ? killErr.message : String(killErr)}`);
+            logger.warn(`Warning: failed to kill agent session ${session.id}: ${killErr instanceof Error ? killErr.message : String(killErr)}`);
           }
           try {
             await stateManager.appendEvent(taskId, { type: "timeout", taskId, elapsed: elapsedSecs, ts: new Date().toISOString() });
           } catch (evtErr) {
-            log(`Warning: failed to append timeout event: ${evtErr instanceof Error ? evtErr.message : String(evtErr)}`);
+            logger.warn(`Warning: failed to append timeout event: ${evtErr instanceof Error ? evtErr.message : String(evtErr)}`);
           }
           await teardownSession(taskId, session, "timed-out");
         } else if (status !== "running") {
@@ -244,11 +241,11 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
         } else {
           // Emit active heartbeat for running sessions
           const elapsedSecs = Math.round(elapsed / 1000);
-          console.log(`[task-${taskId}] [active] ${elapsedSecs}s elapsed`);
+          logger.info(`[task-${taskId}] [active] ${elapsedSecs}s elapsed`);
         }
       }
     } catch (err) {
-      log(`Poll error: ${err instanceof Error ? err.message : String(err)}`);
+      logger.error(`Poll error: ${err instanceof Error ? err.message : String(err)}`);
     }
 
     if (running) {
@@ -256,5 +253,5 @@ export async function runDaemon(repoPath: string, label?: string): Promise<void>
     }
   }
 
-  log("Daemon stopped.");
+  logger.info("Daemon stopped.");
 }

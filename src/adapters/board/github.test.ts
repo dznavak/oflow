@@ -33,7 +33,7 @@ function getMockOctokit() {
 }
 
 const defaultConfig = {
-  board: "github",
+  board: "github" as const,
   githubToken: "ghp_test",
   githubRepo: "owner/repo",
   taskLabel: "oflow-ready",
