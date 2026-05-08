@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { GitLabBoardAdapter } from "./gitlab.js";
 
 const defaultConfig = {
-  board: "gitlab",
+  board: "gitlab" as const,
   gitlabToken: "glpat-test",
   gitlabProjectId: "owner/repo",
   gitlabUrl: "https://gitlab.com/api/v4",
@@ -10,6 +10,7 @@ const defaultConfig = {
   taskInProgressLabel: "oflow-in-progress",
   taskDoneLabel: "oflow-done",
   taskFailedLabel: "oflow-failed",
+  taskPrFailedLabel: "oflow-pr-failed",
   agent: "claude-code",
   maxConcurrentTasks: 1,
   defaultWorkflow: "dev-workflow",

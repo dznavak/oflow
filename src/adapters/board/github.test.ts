@@ -33,12 +33,13 @@ function getMockOctokit() {
 }
 
 const defaultConfig = {
-  board: "github",
+  board: "github" as const,
   githubToken: "ghp_test",
   githubRepo: "owner/repo",
   taskLabel: "oflow-ready",
   taskInProgressLabel: "oflow-in-progress",
   taskDoneLabel: "oflow-done",
+  taskPrFailedLabel: "oflow-pr-failed",
   agent: "claude-code",
   maxConcurrentTasks: 1,
   defaultWorkflow: "dev-workflow",

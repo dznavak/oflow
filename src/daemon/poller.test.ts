@@ -100,4 +100,62 @@ describe("poll", () => {
 
     expect(board.listAvailableTasks).toHaveBeenCalledWith(undefined);
   });
+
+  describe("prFailedLabel priority", () => {
+    it("picks PR-failed task first when prFailedLabel tasks exist", async () => {
+      const prFailedTask = makeTask({ id: "99", title: "Fix failed PR" });
+      const normalTask = makeTask({ id: "42", title: "Normal task" });
+
+      board.listAvailableTasks
+        .mockResolvedValueOnce([prFailedTask]) // first call: prFailedLabel
+        .mockResolvedValueOnce([normalTask]);  // second call: normal label (should not be reached)
+      board.claimTask.mockResolvedValue(prFailedTask);
+      agent.spawn.mockResolvedValue(makeSession({ taskId: "99" }));
+
+      await poll(board, scheduler, agent, stateManager, "/repo", undefined, "oflow-pr-failed");
+
+      expect(board.listAvailableTasks).toHaveBeenCalledWith("oflow-pr-failed");
+      expect(board.claimTask).toHaveBeenCalledWith("99");
+    });
+
+    it("falls through to normal label when no prFailedLabel tasks exist", async () => {
+      const normalTask = makeTask({ id: "42", title: "Normal task" });
+
+      board.listAvailableTasks
+        .mockResolvedValueOnce([])            // first call: prFailedLabel returns empty
+        .mockResolvedValueOnce([normalTask]); // second call: normal label
+      board.claimTask.mockResolvedValue(normalTask);
+      agent.spawn.mockResolvedValue(makeSession());
+
+      await poll(board, scheduler, agent, stateManager, "/repo", undefined, "oflow-pr-failed");
+
+      expect(board.listAvailableTasks).toHaveBeenNthCalledWith(1, "oflow-pr-failed");
+      expect(board.listAvailableTasks).toHaveBeenNthCalledWith(2, undefined);
+      expect(board.claimTask).toHaveBeenCalledWith("42");
+    });
+
+    it("uses provided label for fallback when prFailedLabel tasks are absent", async () => {
+      const normalTask = makeTask({ id: "42", title: "Normal task" });
+
+      board.listAvailableTasks
+        .mockResolvedValueOnce([])            // prFailedLabel returns empty
+        .mockResolvedValueOnce([normalTask]); // fallback label
+      board.claimTask.mockResolvedValue(normalTask);
+      agent.spawn.mockResolvedValue(makeSession());
+
+      await poll(board, scheduler, agent, stateManager, "/repo", "my-label", "oflow-pr-failed");
+
+      expect(board.listAvailableTasks).toHaveBeenNthCalledWith(1, "oflow-pr-failed");
+      expect(board.listAvailableTasks).toHaveBeenNthCalledWith(2, "my-label");
+    });
+
+    it("skips prFailedLabel check when prFailedLabel is not provided", async () => {
+      board.listAvailableTasks.mockResolvedValue([]);
+
+      await poll(board, scheduler, agent, stateManager, "/repo", "my-label");
+
+      expect(board.listAvailableTasks).toHaveBeenCalledTimes(1);
+      expect(board.listAvailableTasks).toHaveBeenCalledWith("my-label");
+    });
+  });
 });

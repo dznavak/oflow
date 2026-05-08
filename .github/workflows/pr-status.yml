@@ -1,0 +1,63 @@
+name: PR Status
+
+on:
+  check_suite:
+    types: [completed]
+
+jobs:
+  label-failed-pr:
+    runs-on: ubuntu-latest
+    # Only act when there is at least one associated PR
+    if: github.event.check_suite.pull_requests[0] != null
+    permissions:
+      issues: write
+      pull-requests: read
+    steps:
+      - name: Get PR body
+        id: pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.check_suite.pull_requests[0].number }}
+          REPO: ${{ github.repository }}
+        run: |
+          body=$(gh api repos/$REPO/pulls/$PR_NUMBER --jq '.body // ""')
+          echo "body<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$body" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Extract closing issue number
+        id: issue
+        run: |
+          # Match "Closes #N" (case-insensitive) in the PR body
+          issue_number=$(echo '${{ steps.pr.outputs.body }}' \
+            | grep -oiE 'closes #([0-9]+)' \
+            | grep -oE '[0-9]+' \
+            | head -1)
+          echo "number=$issue_number" >> "$GITHUB_OUTPUT"
+
+      - name: Label issue on failure
+        if: |
+          steps.issue.outputs.number != '' &&
+          github.event.check_suite.conclusion == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          gh issue edit "$ISSUE_NUMBER" \
+            --add-label oflow-pr-failed \
+            --repo "$REPO"
+
+      - name: Remove label on success
+        if: |
+          steps.issue.outputs.number != '' &&
+          github.event.check_suite.conclusion == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ steps.issue.outputs.number }}
+        run: |
+          # Remove label only if it exists; ignore error if absent
+          gh issue edit "$ISSUE_NUMBER" \
+            --remove-label oflow-pr-failed \
+            --repo "$REPO" || true

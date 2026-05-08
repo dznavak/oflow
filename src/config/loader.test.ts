@@ -65,7 +65,51 @@ describe("loadConfig", () => {
     expect(config.taskLabel).toBe("oflow-ready");
     expect(config.taskInProgressLabel).toBe("oflow-in-progress");
     expect(config.taskDoneLabel).toBe("oflow-done");
+    expect(config.taskPrFailedLabel).toBe("oflow-pr-failed");
     expect(config.defaultWorkflow).toBe("dev-workflow");
+  });
+
+  it("defaults taskPrFailedLabel to 'oflow-pr-failed' for github board", () => {
+    process.env.OFLOW_BOARD = "github";
+    process.env.OFLOW_GITHUB_TOKEN = "ghp_test";
+    process.env.OFLOW_GITHUB_REPO = "owner/repo";
+
+    const config = loadConfig();
+
+    expect(config.taskPrFailedLabel).toBe("oflow-pr-failed");
+  });
+
+  it("respects custom OFLOW_TASK_PR_FAILED_LABEL for github board", () => {
+    process.env.OFLOW_BOARD = "github";
+    process.env.OFLOW_GITHUB_TOKEN = "ghp_test";
+    process.env.OFLOW_GITHUB_REPO = "owner/repo";
+    process.env.OFLOW_TASK_PR_FAILED_LABEL = "custom-pr-failed";
+
+    const config = loadConfig();
+
+    expect(config.taskPrFailedLabel).toBe("custom-pr-failed");
+  });
+
+  it("defaults taskPrFailedLabel to 'oflow-pr-failed' for gitlab board", () => {
+    process.env.OFLOW_BOARD = "gitlab";
+    process.env.OFLOW_GITLAB_TOKEN = "glpat_test";
+    process.env.OFLOW_GITLAB_PROJECT_ID = "owner/repo";
+
+    const config = loadConfig();
+
+    expect(config.taskPrFailedLabel).toBe("oflow-pr-failed");
+  });
+
+  it("defaults taskPrFailedLabel to 'oflow-pr-failed' for jira board", () => {
+    process.env.OFLOW_BOARD = "jira";
+    process.env.OFLOW_JIRA_TOKEN = "jira-token";
+    process.env.OFLOW_JIRA_URL = "https://mycompany.atlassian.net";
+    process.env.OFLOW_JIRA_EMAIL = "dev@example.com";
+    process.env.OFLOW_JIRA_PROJECT_KEY = "DEV";
+
+    const config = loadConfig();
+
+    expect(config.taskPrFailedLabel).toBe("oflow-pr-failed");
   });
 
   it("respects overridden optional fields", () => {

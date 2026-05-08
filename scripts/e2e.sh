@@ -73,17 +73,25 @@ ISSUE_URL=$(gh issue create \
 
 ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
 echo "Created issue #$ISSUE_NUMBER ($ISSUE_URL)"
-echo "Waiting 5s for GitHub API to propagate..."
-sleep 5
 
-# --- Step 4: Verify board visibility ---
+# --- Step 4: Verify board visibility (retry up to 4x, 15s apart) ---
 echo ""
 echo "--- Step 4: Verify board visibility ---"
-BOARD_OUTPUT=$(node dist/cli/index.js board list --label "$LABEL" 2>&1) || fail "board list command failed: $BOARD_OUTPUT"
+BOARD_VISIBLE=false
+for attempt in 1 2 3 4; do
+  echo "Attempt $attempt: waiting 15s for GitHub API to propagate..."
+  sleep 15
+  BOARD_OUTPUT=$(node dist/cli/index.js board list --label "$LABEL" 2>&1) || fail "board list command failed: $BOARD_OUTPUT"
+  if echo "$BOARD_OUTPUT" | grep -q "\"id\": *\"$ISSUE_NUMBER\""; then
+    BOARD_VISIBLE=true
+    break
+  fi
+  echo "  Issue #$ISSUE_NUMBER not yet visible (board returned: $BOARD_OUTPUT)"
+done
 
-if ! echo "$BOARD_OUTPUT" | grep -q "\"id\": *\"$ISSUE_NUMBER\""; then
+if [ "$BOARD_VISIBLE" != "true" ]; then
   echo "Board output: $BOARD_OUTPUT"
-  fail "Issue #$ISSUE_NUMBER not visible in board list output"
+  fail "Issue #$ISSUE_NUMBER not visible in board list output after 4 attempts (60s)"
 fi
 echo "Issue #$ISSUE_NUMBER is visible on the board"
 

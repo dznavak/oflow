@@ -18,6 +18,7 @@ export interface Config {
   taskLabel: string;
   taskInProgressLabel: string;
   taskDoneLabel: string;
+  taskPrFailedLabel: string;
   agent: string;
   maxConcurrentTasks: number;
   defaultWorkflow: string;
