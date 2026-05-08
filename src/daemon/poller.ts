@@ -17,13 +17,17 @@ export async function poll(
   agent: AgentAdapter,
   stateManager: StateManager | { initRun: (id: string) => Promise<string>; writeTaskContext: (id: string, ctx: object) => Promise<void>; getRunDir: (id: string) => string },
   repoPath: string,
-  label?: string
+  label?: string,
+  prFailedLabel?: string
 ): Promise<void> {
   if (!scheduler.hasSlot()) {
     return;
   }
 
-  const tasks = await board.listAvailableTasks(label);
+  let tasks = prFailedLabel ? await board.listAvailableTasks(prFailedLabel) : [];
+  if (tasks.length === 0) {
+    tasks = await board.listAvailableTasks(label);
+  }
   if (tasks.length === 0) {
     return;
   }

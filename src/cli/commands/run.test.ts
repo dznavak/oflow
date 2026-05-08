@@ -22,6 +22,7 @@ vi.mock("../../config/loader.js", () => ({
     taskLabel: "oflow-ready",
     taskInProgressLabel: "oflow-in-progress",
     taskDoneLabel: "oflow-done",
+    taskPrFailedLabel: "oflow-pr-failed",
     pollIntervalSeconds: 30,
     maxConcurrentTasks: 1,
     agent: "claude-code",
@@ -110,7 +111,8 @@ describe("runDaemon", () => {
       expect.anything(),
       expect.anything(),
       "/repo",
-      undefined
+      undefined,
+      "oflow-pr-failed"
     );
   });
 
@@ -131,7 +133,8 @@ describe("runDaemon", () => {
       expect.anything(),
       expect.anything(),
       "/repo",
-      "my-label"
+      "my-label",
+      "oflow-pr-failed"
     );
   });
 
@@ -943,6 +946,7 @@ describe("runDaemon", () => {
         taskLabel: "oflow-ready",
         taskInProgressLabel: "oflow-in-progress",
         taskDoneLabel: "oflow-done",
+        taskPrFailedLabel: "oflow-pr-failed",
         pollIntervalSeconds: 30,
         maxConcurrentTasks: 1,
         agent: "claude-code",
@@ -976,6 +980,7 @@ describe("runDaemon", () => {
         taskLabel: "oflow-ready",
         taskInProgressLabel: "oflow-in-progress",
         taskDoneLabel: "oflow-done",
+        taskPrFailedLabel: "oflow-pr-failed",
         pollIntervalSeconds: 30,
         maxConcurrentTasks: 1,
         agent: "claude-code",
@@ -1011,6 +1016,7 @@ describe("runDaemon", () => {
         taskLabel: "oflow-ready",
         taskInProgressLabel: "oflow-in-progress",
         taskDoneLabel: "oflow-done",
+        taskPrFailedLabel: "oflow-pr-failed",
         pollIntervalSeconds: 30,
         maxConcurrentTasks: 1,
         agent: "claude-code",

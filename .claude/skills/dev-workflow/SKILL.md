@@ -5,6 +5,13 @@ description: Full development workflow from task pickup to PR — explore, plan,
 
 You are executing the oflow dev-workflow for a GitHub issue.
 
+## Preamble: Check for failed PR
+Before doing anything else, check if this task has the `oflow-pr-failed` label:
+```bash
+cat .oflow/runs/$OFLOW_CURRENT_TASK_ID/task-context.json | grep -q 'oflow-pr-failed' && echo 'HAS_FAILED_PR=true'
+```
+If the task has the `oflow-pr-failed` label, **stop this workflow** and follow `.claude/skills/steps/fix-pr/SKILL.md` instead.
+
 ## Setup
 First, confirm you have the task context:
 ```bash

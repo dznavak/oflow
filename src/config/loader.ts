@@ -9,6 +9,7 @@ const baseSchema = z.object({
   OFLOW_TASK_LABEL: z.string().default("oflow-ready"),
   OFLOW_TASK_IN_PROGRESS_LABEL: z.string().default("oflow-in-progress"),
   OFLOW_TASK_DONE_LABEL: z.string().default("oflow-done"),
+  OFLOW_TASK_PR_FAILED_LABEL: z.string().default("oflow-pr-failed"),
   OFLOW_AGENT: z.string().default("claude-code"),
   OFLOW_MAX_CONCURRENT_TASKS: z
     .string()
@@ -97,6 +98,7 @@ export function loadConfig(): Config {
       taskLabel: base.OFLOW_TASK_LABEL,
       taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
       taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
+      taskPrFailedLabel: base.OFLOW_TASK_PR_FAILED_LABEL,
       agent: base.OFLOW_AGENT,
       maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
       defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
@@ -121,6 +123,7 @@ export function loadConfig(): Config {
       taskLabel: base.OFLOW_TASK_LABEL,
       taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
       taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
+      taskPrFailedLabel: base.OFLOW_TASK_PR_FAILED_LABEL,
       agent: base.OFLOW_AGENT,
       maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
       defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,
@@ -150,6 +153,7 @@ export function loadConfig(): Config {
     taskLabel: base.OFLOW_TASK_LABEL,
     taskInProgressLabel: base.OFLOW_TASK_IN_PROGRESS_LABEL,
     taskDoneLabel: base.OFLOW_TASK_DONE_LABEL,
+    taskPrFailedLabel: base.OFLOW_TASK_PR_FAILED_LABEL,
     agent: base.OFLOW_AGENT,
     maxConcurrentTasks: base.OFLOW_MAX_CONCURRENT_TASKS,
     defaultWorkflow: base.OFLOW_DEFAULT_WORKFLOW,

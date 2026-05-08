@@ -28,6 +28,7 @@ function makeConfig(board: string): Config {
     jiraDoneStatus: "Done",
     taskInProgressLabel: "",
     taskDoneLabel: "",
+    taskPrFailedLabel: "",
   };
 }
 

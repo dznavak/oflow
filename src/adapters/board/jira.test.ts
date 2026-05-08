@@ -13,6 +13,7 @@ const defaultConfig = {
   taskLabel: "oflow-ready",
   taskInProgressLabel: "oflow-in-progress",
   taskDoneLabel: "oflow-done",
+  taskPrFailedLabel: "oflow-pr-failed",
   agent: "claude-code",
   maxConcurrentTasks: 1,
   defaultWorkflow: "dev-workflow",
